@@ -1,6 +1,23 @@
 # API
 
-A descrição completa dos schemas fica em `/docs` e `/openapi.json`. Todos os caminhos `/api/*` exigem `Authorization: Bearer <APP_API_KEY>` quando essa variável está preenchida. Nunca envie `OPENAI_KEY` ou `MCP_API_KEY` ao navegador ou como chave da aplicação.
+`GET /api/conversations` retorna a execução mais recente de cada conversa, em ordem decrescente de criação, sem o limite legado de 100 registros. O parâmetro opcional `limit` aceita inteiros positivos (a barra lateral usa `limit=5`). Respeita `X-Data-Session`: inclui dados persistentes e somente as conversas temporárias da sessão atual. `/historico` serve a interface de histórico completo.
+
+A descrição completa dos schemas fica em `/docs` e `/openapi.json`. Com `SSO_ENABLED=true`, a interface, documentação e `/api/*` exigem cookie de sessão SSO. Com SSO desligado, `/api/*` exige `Authorization: Bearer <APP_API_KEY>` quando configurada. Nunca envie `OPENAI_KEY` ou `MCP_API_KEY` ao navegador ou como chave da aplicação.
+
+Com SSO ativo, `POST /login` aceita `token` em formulário URL encoded, JSON ou Bearer;
+valida JWT RS256 e cria sessão local, respondendo 303 para `/`. Também aceita `code`
+e `aud` em formulário/JSON para troca backend com ScdAuth. Respostas de falha: 400
+campos inválidos, 401 credencial inválida/ausente/reutilizada, 413 corpo grande,
+415 formato não suportado, 429 limite de tentativas, 502 falha de troca e 503 troca
+não configurada. `GET /login` retorna 405 em produção e permite sessão de desenvolvimento
+somente com `ENVIRONMENT=development` e launcher `--development` simultaneamente;
+`?logged_out=1` não cria sessão.
+`POST /logout` revoga o cookie atual e retorna 204. Requisições de escrita com Origin
+divergente do target configurado são recusadas (exceto a entrada SSO em `/login`).
+Essas rotas são sempre registradas. Com SSO desligado, POST de login retorna 503;
+GET pode criar sessão local se as duas condições de desenvolvimento forem satisfeitas,
+mesmo sem chave pública/target. Nesse modo, páginas e API exigem sessão local.
+`GET /favicon.ico` retorna 204. Consulte [operação](operations.md).
 
 ## Endpoints
 
@@ -8,7 +25,14 @@ A descrição completa dos schemas fica em `/docs` e `/openapi.json`. Todos os c
 | --- | --- | --- |
 | GET | `/health` | Saúde do processo, sem testar dependências |
 | GET | `/api/status` | Modelo, presença de configuração e limites, sem segredos |
-| GET | `/api/connections/pg-mcp` | Inicializa MCP e verifica ferramentas/databases; pode retornar 503 |
+| GET | `/api/skills` | Skills locais disponíveis ao agente: identificador, nome, descrição e documento de orientação |
+| POST | `/api/import-sessions` | Cria sessão temporária (201); com `X-Data-Session` encerra e apaga a anterior antes de criar outra |
+| DELETE | `/api/import-sessions/current` | Encerra a sessão do header `X-Data-Session`, cancela suas execuções temporárias e remove os arquivos (204) |
+| POST | `/api/imports?max_datasets=10` | Upload multipart `file` XLSX/XLS/CSV; exige sessão, infere cabeçalhos/tipos por IA e retorna uma lista de datasets temporários, um por aba |
+| GET | `/api/connections/pg-mcp` | Inicializa MCP e verifica ferramentas/databases; `databases.databases` contém somente bases permitidas ao usuário; pode retornar 503 |
+| GET | `/api/catalog/databases` | Databases descobertos no MCP, filtrados por `ALLOWED_DATABASES` e com permissão `USAGE` no schema `public` |
+| GET | `/api/catalog/tables?database=...&schema=public` | Tabelas e views do schema, com nomes e origem |
+| POST | `/api/catalog/preview` | Recebe `database`, `schema` (padrão `public`) e `table`; retorna dataset e amostra de até 10 linhas |
 | POST | `/api/runs` | Enfileira execução e retorna 202 com UUIDs |
 | GET | `/api/runs` | Até 100 execuções recentes, da mais nova para a mais antiga |
 | GET | `/api/runs/{id}` | Estado, eventos, resposta e arquivos de uma execução |
@@ -18,6 +42,12 @@ A descrição completa dos schemas fica em `/docs` e `/openapi.json`. Todos os c
 | GET | `/api/artifacts/{id}` | Download autenticado de arquivo gerado |
 
 ## Pedido e conversa
+
+`X-Data-Session: <UUID>` identifica uma sessão temporária isolada. Use o header na importação, na submissão/consulta das execuções que usam esses datasets e nos downloads de seus artefatos. O servidor retorna 410 para sessão encerrada/expirada; sem o header ou com outra sessão, dados temporários não são encontrados. Sessões sem importações ou conversas temporárias mantêm a persistência existente. A partir da importação, as novas execuções dessa sessão, incluindo perguntas seguintes, eventos, datasets derivados e artefatos ficam somente na sessão e não são gravados no SQLite. O upload legado `/api/datasets/upload` continua com seu contrato persistente; `/api/imports` é o fluxo temporário.
+
+O upload temporário não aceita código ou schema executável: a inferência usa uma função com schema Pydantic. Envia no máximo vinte linhas iniciais por aba e 20000 caracteres no conjunto, sem armazenar a resposta no serviço Responses (`store=False`). Até dez abas e 200 colunas no conjunto, respeitando limites de bytes e linhas configurados. Estruturas inconsistentes ou pouco confiáveis são recusadas; conversões incompatíveis preservam a coluna inteira como texto com aviso. A gravação das abas é atômica para o arquivo: uma falha remove todos os Parquet criados nessa importação. Fórmulas, macros e links externos não são executados. A inferência tem timeout de 150 segundos e exige chave de IA configurada.
+
+`/api/imports` usa `MAX_TEMPORARY_UPLOAD_BYTES`, com padrão e máximo de 524288000 bytes (500 MiB) por arquivo. `/api/status` expõe `max_temporary_upload_bytes` para o navegador. Arquivos acima do limite retornam 413 antes da inferência; arquivos exatamente no limite são permitidos no controle de tamanho. Seus limites próprios de conteúdo são `MAX_TEMPORARY_ROWS` (1048576), `MAX_TEMPORARY_CHARACTERS` (524288000) e `MAX_TEMPORARY_EXPANDED_BYTES` (2 GiB). Recusas durante o processamento incluem `X-Import-Stage` (`upload`, `read`, `inference`, `validation` ou `parquet`) para identificar a etapa, além do detalhe textual. A contagem de linhas se refere aos dados após o cabeçalho, somando as abas.
 
 ```json
 {
@@ -84,9 +114,77 @@ with httpx.Client(base_url="http://127.0.0.1:8080", headers=headers, timeout=45)
 | 401 | Chave da aplicação ausente/incorreta |
 | 404 | Execução, dataset ou arquivo inexistente |
 | 409 | Falta chave de IA, fila cheia, conversa ocupada ou pedido vazio |
+| 410 | Sessão temporária encerrada ou expirada |
+| 429 | Limite de sessões temporárias atingido |
+| 504 | Timeout da inferência de estrutura por IA |
 | 413 | CSV excede bytes, linhas ou colunas permitidos |
 | 415 | Tipo de arquivo não suportado; use CSV |
 | 422 | Contrato inválido, UUID incorreto ou CSV sem dados/UTF-8 válido |
 | 503 | Diagnóstico do MCP indisponível; detalhe informa a causa quando identificável |
 
 Falhas ocorridas após aceitar uma execução aparecem em `status=failed` e `error`; consultar a execução ainda retorna HTTP 200. Os downloads usam `Cache-Control: no-store` e conteúdo de anexo. A autenticação não é passada em query string.
+## Consultas favoritas
+
+- `GET /api/queries`: retorna `{queries: [...]}` com favoritas desta instalação.
+- `POST /api/queries`: cria favorita (201).
+- `PUT /api/queries/{uuid}`: substitui definição preservando UUID e data de criação.
+- `DELETE /api/queries/{uuid}`: exclui definição (204; inexistente retorna 404).
+- `POST /api/queries/{uuid}/execute`: executa somente leitura e retorna dataset/prévia/origem.
+  Com `X-Data-Session`, o resultado fica na sessão temporária. Sem esse header, fica no store local.
+
+POST/PUT recebem `name` (1–150 caracteres, não vazio), `description` opcional (até 2000),
+`database`, `sql` (até 20000 caracteres) e `max_rows` (inteiro positivo, padrão 1000).
+SQL inválido, operações de escrita e bases fora da configuração retornam 422.
+A execução respeita limites globais, retorna 404 para UUID inexistente e 504 em timeout.
+Todos os endpoints usam a autenticação existente. Favoritas são compartilhadas por instalação.
+`POST /api/runs` também aceita `query_ids: [uuid, ...]` (máximo 10); seleções inexistentes
+são rejeitadas antes de enfileirar. As definições são contexto para o agente, sem execução
+automática no momento da seleção.
+
+## Perfil e estatísticas
+
+`GET /api/profile` retorna `name`, `identity`, `scope`, `auth_mode` (`local`, `sso` ou
+`development`), `profile`, `role`, `function`, `department`, `unit_number`, `unit_name`
+e `usage` com totais inteiros de
+`conversations`, `requests`, `completed` e `artifacts`. Usa a autenticação de `/api`.
+Os campos profissionais opcionais são nulos quando ausentes. Nome/e-mail e informações
+profissionais vêm da sessão autenticada, ou do ambiente no bypass de desenvolvimento;
+o modo local não possui identidade individual. A contagem abrange todo o histórico
+persistente da instalação, sem o limite de 100 pedidos recentes; com `X-Data-Session`,
+inclui também os pedidos e arquivos apenas daquela sessão temporária. Conversas são
+contadas por ID distinto, inclusive quando possuem pedidos nos dois armazenamentos.
+Não retorna prompts, dados importados, credenciais, tokens ou estimativas de custo.
+
+## Dashboards
+
+A criação aceita `filters: [{id, label, dataset_id, column, kind}]` (até 12; `kind`
+é `select` ou `text`). Cada widget pode declarar `aggregation: sum|mean|count|min|max`
+(exceto tabelas). Filtros do mesmo dataset combinam-se com E antes da agregação e
+do limite visual. Gráficos agregados agrupam por `label_column`; cards agregam tudo.
+`GET /api/dashboards/{uuid}/html?filters=<JSON codificado>` recebe um objeto de
+IDs de filtros para valores textuais (até 500 caracteres cada). Valor vazio remove
+o filtro. IDs desconhecidos ou valores inválidos retornam 422; nunca alteram o SQL.
+
+Endpoints usam a autorização global e o cookie HttpOnly `scd-dashboard-profile`, gerado
+pelo servidor. Preserve o cookie entre chamadas; sem ele, inicia-se outro perfil local.
+IDs de outro perfil retornam 404. Não existe identidade individual autenticada nesta instalação.
+
+- `GET /api/dashboards`: retorna `{dashboards: [{id, title, description, created_at}], limit: 4, refresh_seconds: 60}`.
+- `GET /api/dashboards/{uuid}`: metadados do dashboard do perfil atual; a página dedicada
+  `/dashboards/{uuid}` usa esse endpoint para acesso direto e após recarregar.
+- `POST /api/dashboards`: cria a partir de datasets existentes (201). Recebe `title`,
+  `description` e `widgets` (1 a 12). Cada widget define `title`, `dataset_id`, `kind`
+  (`metric`, `table`, `bar`, `line`, `donut`), `columns` (mapa campo/rótulo),
+  `value_column`, `label_column`, `unit` e `max_rows` (1 a 100).
+  `numeric_columns` identifica as medidas da tabela que usam notação K/Mi/Bi/Tri;
+  anos e identificadores devem ficar fora dessa lista. O valor bruto é mantido para ordenação.
+  Indicadores exigem uma linha agregada; rosca exige valores não negativos.
+  Fontes inválidas, widgets incompatíveis e cota atingida retornam 422.
+- `GET /api/dashboards/{uuid}/html`: consulta fontes atuais e retorna HTML sem cache.
+  Usa `X-Data-Session` para importações. Retorna 422 para fonte expirada/incompatível,
+  504 ao exceder 35 segundos. A busca das tabelas opera nas linhas retornadas do widget.
+- `DELETE /api/dashboards/{uuid}`: exclui do perfil atual (204), liberando uma vaga.
+
+`POST /api/runs` aceita `output_format: "auto" | "dashboard"` (padrão `auto`).
+A ferramenta `create_dashboard` usa o mesmo schema de criação e retorna
+`{id, title, format: "dashboard", url: "/dashboards/uuid", refresh_seconds: 60}`.

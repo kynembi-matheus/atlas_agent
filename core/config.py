@@ -21,13 +21,38 @@ class Settings(BaseSettings):
     mcp_ca_bundle: Path | None = None
     mcp_api_key: SecretStr = SecretStr("")
     app_api_key: SecretStr = SecretStr("")
+    sso_enabled: bool = False
+    sso_public_key: str = ""
+    sso_public_key_path: Path | None = None
+    sso_expected_target: str = ""
+    sso_expected_issuer: str = "samsite"
+    sso_expected_audience: str = ""
+    sso_auth_base_url: str = ""
+    sso_exchange_secret: SecretStr = SecretStr("")
+    sso_auth_ca_bundle: Path | None = None
+    sso_session_seconds: int = Field(default=28800, ge=60, le=86400)
+    sso_cookie_secure: bool = True
+    environment: str = "production"
+    environment_email: str = ""
+    environment_name: str = ""
+    environment_profile: str | None = None
+    environment_role: str | None = None
+    environment_function: str | None = None
+    environment_department: str | None = None
+    environment_unit_number: str | None = None
+    environment_unit_name: str | None = None
+    environment_photo_url: str | None = None
     allowed_databases: list[str] = []
     data_dir: Path = ROOT / "data"
     docs_dir: Path = ROOT / "docs"
-    max_agent_steps: int = Field(default=20, ge=1, le=100)
+    max_agent_steps: int = Field(default=60, ge=1, le=60)
     max_query_rows: int = Field(default=5000, ge=1, le=50000)
     max_dataset_rows: int = Field(default=50000, ge=1, le=100000)
     max_upload_bytes: int = Field(default=5 * 1024 * 1024, ge=1024, le=50 * 1024 * 1024)
+    max_temporary_upload_bytes: int = Field(default=500 * 1024 * 1024, ge=1024, le=500 * 1024 * 1024)
+    max_temporary_expanded_bytes: int = Field(default=2 * 1024**3, ge=1024, le=4 * 1024**3)
+    max_temporary_characters: int = Field(default=500 * 1024 * 1024, ge=1024, le=1024**3)
+    max_temporary_rows: int = Field(default=1048576, ge=1, le=2000000)
     max_concurrent_runs: int = Field(default=2, ge=1, le=10)
     max_pending_runs: int = Field(default=20, ge=1, le=100)
     run_timeout_seconds: int = Field(default=600, ge=10, le=3600)

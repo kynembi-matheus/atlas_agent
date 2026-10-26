@@ -1,0 +1,71 @@
+- generic [active] [ref=e1]:
+  - link "Pular para o pedido" [ref=e3] [cursor=pointer]:
+    - /url: "#prompt"
+  - generic [ref=e4]:
+    - complementary "Navegação e histórico" [ref=e5]:
+      - link "Agente SCD, início" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e7]: s
+        - generic [ref=e8]: agentescd
+      - button "Nova conversa" [ref=e9] [cursor=pointer]: ＋ Nova conversa
+      - generic [ref=e10]:
+        - generic [ref=e11]: Histórico
+        - button "Atualizar histórico" [ref=e12] [cursor=pointer]: ↻
+      - navigation "Conversas recentes" [ref=e13]:
+        - paragraph [ref=e14]: Nenhuma conversa ainda.
+      - link "Ver mais" [ref=e15] [cursor=pointer]:
+        - /url: /historico
+      - button "Abrir perfil e uso" [ref=e16] [cursor=pointer]:
+        - generic [ref=e21]:
+          - strong [ref=e22]: Usuário
+          - generic [ref=e23]: Sessão local
+        - generic [aria-hidden] [ref=e24]: ⋯
+    - main [ref=e25]:
+      - generic [ref=e27]:
+        - generic [ref=e28]:
+          - heading "Conversa" [level=1] [ref=e30]
+          - navigation "Dados e skills" [ref=e31]:
+            - button "Dados" [ref=e32] [cursor=pointer]:
+              - generic [aria-hidden] [ref=e33]: ▥
+              - text: Dados
+            - button "Importar" [ref=e34] [cursor=pointer]:
+              - generic [aria-hidden] [ref=e35]: ↑
+              - text: Importar
+            - button "Skills" [ref=e36] [cursor=pointer]:
+              - generic [aria-hidden] [ref=e37]: ✳
+              - text: Skills
+            - button "Queries" [ref=e38] [cursor=pointer]:
+              - generic [aria-hidden] [ref=e39]: ☆
+              - text: Queries
+        - generic [ref=e40]:
+          - heading "O que vamos analisar?" [level=2] [ref=e41]
+          - generic [ref=e42]:
+            - button "Criar relatório" [ref=e43] [cursor=pointer]:
+              - generic [aria-hidden] [ref=e44]: ▤
+              - text: Criar relatório
+            - button "Encontrar padrões" [ref=e45] [cursor=pointer]:
+              - generic [aria-hidden] [ref=e46]: ⌕
+              - text: Encontrar padrões
+            - button "Fazer projeções" [ref=e47] [cursor=pointer]:
+              - generic [aria-hidden] [ref=e48]: ↗
+              - text: Fazer projeções
+        - region "Enviar um pedido" [ref=e49]:
+          - generic "Consultas favoritas selecionadas"
+          - generic [ref=e50]:
+            - generic [ref=e51]: O que você precisa analisar?
+            - textbox "O que você precisa analisar?" [ref=e52]:
+              - /placeholder: Pergunte sobre seus dados. / skills · @ dados · ? queries
+            - generic [ref=e53]:
+              - generic [ref=e54]:
+                - generic [ref=e55] [cursor=pointer]:
+                  - generic [aria-hidden] [ref=e56]: ＋
+                  - text: Anexar
+                - button "Anexar PDF, XLSX, CSV, DOCX ou PPTX" [ref=e57]
+              - button "Enviar" [ref=e58] [cursor=pointer]: Enviar ↑
+          - generic [ref=e59]:
+            - generic [ref=e60]: / skills · @ dados · ? queries
+            - generic [ref=e61]: Ctrl + Enter para enviar
+        - generic [ref=e62]:
+          - generic [ref=e63]: Carregando modelo…
+          - link "Documentação ↗" [ref=e66] [cursor=pointer]:
+            - /url: /docs

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "targets": {
+    "/": {
+      "targetKind": "existing-ui",
+      "projectId": "17eb5187-57d8-4d63-9ee1-37068d406b69",
+      "baselineDraftId": "27ae3f32-7fd5-48be-9509-85ab93e30446",
+      "activeDraftId": "27ae3f32-7fd5-48be-9509-85ab93e30446",
+      "designSystemPath": ".superdesign/design-system.md",
+      "contextFiles": [
+        ".superdesign/design-system.md",
+        "frontend/style.css",
+        "frontend/index.html",
+        "frontend/profile.js"
+      ],
+      "fingerprints": {
+        ".superdesign/design-system.md": "bb064c2ae757c71df9e7c3b27c5f5ca782d8701adf3238cff22b114725c322c4",
+        "frontend/style.css": "a8936cf8b649303e19913cd6b7c65bc4e676643df682c56bea197a5120a8b9dd",
+        "frontend/index.html": "1efb788f478729ea6b778a1c45031ed707d7474502a48d2690a44cd36fa6b0cd",
+        "frontend/profile.js": "34377af5b5446a895b39603bee3ae54cf44083a3dd83303fa5e7c7625520afc1"
+      },
+      "components": [],
+      "drafts": {
+        "27ae3f32-7fd5-48be-9509-85ab93e30446": {
+          "title": "Atlas Agent - Perfil do usuario",
+          "visualDirection": "Navy and turquoise workspace with open profile dialog: identity, professional details, shared usage, preferences and logout",
+          "currentVersion": 4
+        }
+      },
+      "updatedAt": "2026-10-26T19:03:33.036271+00:00",
+      "implementedVersion": 4
+    }
+  }
+}

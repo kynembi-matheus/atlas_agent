@@ -1,0 +1,83 @@
+- generic [active] [ref=e1]:
+  - link "Pular para o pedido" [ref=e3] [cursor=pointer]:
+    - /url: "#prompt"
+  - generic [ref=e4]:
+    - complementary "Navegação e histórico" [ref=e5]:
+      - button "Minimizar sidebar" [expanded] [ref=e6] [cursor=pointer]
+      - link "Atlas Agent, início" [ref=e10] [cursor=pointer]:
+        - /url: /
+        - generic [aria-hidden] [ref=e11]: A
+        - generic [ref=e12]: Atlas Agent
+      - button "Nova conversa" [ref=e13] [cursor=pointer]: ＋ Nova conversa
+      - generic [ref=e14]:
+        - generic [ref=e15]: Histórico
+        - button "Atualizar histórico" [ref=e16] [cursor=pointer]: ↻
+      - navigation "Conversas recentes" [ref=e17]:
+        - paragraph [ref=e18]: Nenhuma conversa ainda.
+      - link "Ver mais" [ref=e19] [cursor=pointer]:
+        - /url: /historico
+      - link "Dashboards" [ref=e20] [cursor=pointer]:
+        - /url: /dashboards
+      - button "Abrir perfil e uso de Ana Silva" [ref=e24] [cursor=pointer]:
+        - generic [aria-hidden] [ref=e25]: AS
+        - generic [ref=e26]:
+          - strong [ref=e27]: Ana Silva
+          - generic [ref=e28]: ana@example.test
+        - generic [aria-hidden] [ref=e29]: ⋯
+      - paragraph [ref=e30]: Powered by AI
+    - main [ref=e31]:
+      - generic [ref=e32]:
+        - status [ref=e33]: Para começar, configure OPENAI_API_KEY ou OPENAI_KEY no arquivo .config/.env ou .env e reinicie o serviço.
+        - generic [ref=e34]:
+          - generic [ref=e35]:
+            - heading "Conversa" [level=1] [ref=e37]
+            - navigation "Dados e skills" [ref=e38]:
+              - button "Dados" [ref=e39] [cursor=pointer]:
+                - generic [aria-hidden] [ref=e40]: ▥
+                - text: Dados
+              - button "Importar" [ref=e41] [cursor=pointer]:
+                - generic [aria-hidden] [ref=e42]: ↑
+                - text: Importar
+              - button "Skills" [ref=e43] [cursor=pointer]:
+                - generic [aria-hidden] [ref=e44]: ✳
+                - text: Skills
+              - button "Queries" [ref=e45] [cursor=pointer]:
+                - generic [aria-hidden] [ref=e46]: ☆
+                - text: Queries
+          - generic [ref=e47]:
+            - paragraph [ref=e48]: Agente Autônomo de Inteligência de Dados
+            - heading "Explore dados. Descubra padrões. Antecipe decisões." [level=2] [ref=e49]
+            - generic [ref=e50]:
+              - button "Criar relatório" [ref=e51] [cursor=pointer]:
+                - generic [aria-hidden] [ref=e52]: ▤
+                - text: Criar relatório
+              - button "Encontrar padrões" [ref=e53] [cursor=pointer]:
+                - generic [aria-hidden] [ref=e54]: ⌕
+                - text: Encontrar padrões
+              - button "Fazer projeções" [ref=e55] [cursor=pointer]:
+                - generic [aria-hidden] [ref=e56]: ↗
+                - text: Fazer projeções
+          - region "Enviar um pedido" [ref=e57]:
+            - generic "Consultas favoritas selecionadas"
+            - generic [ref=e58]:
+              - generic [ref=e59]: O que você precisa analisar?
+              - textbox "O que você precisa analisar?" [ref=e60]:
+                - /placeholder: Pergunte sobre seus dados. / skills · @ dados · ? queries
+              - generic [ref=e61]:
+                - generic [ref=e62]:
+                  - generic [ref=e63] [cursor=pointer]:
+                    - generic [aria-hidden] [ref=e64]: ＋
+                    - text: Anexar
+                  - button "Anexar PDF, XLSX, CSV, DOCX ou PPTX" [ref=e65]
+                  - generic [ref=e66]: Formato de saída
+                  - combobox "Formato de saída" [ref=e67]:
+                    - option "Saída automática" [selected]
+                    - option "Dashboard"
+                - button "Enviar" [ref=e68] [cursor=pointer]: Enviar ↑
+            - generic [ref=e69]:
+              - generic [ref=e70]: / skills · @ dados · ? queries
+              - generic [ref=e71]: Ctrl + Enter para enviar
+          - generic [ref=e72]:
+            - generic [ref=e73]: gpt-4.1
+            - link "Documentação ↗" [ref=e76] [cursor=pointer]:
+              - /url: /docs

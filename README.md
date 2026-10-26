@@ -1,8 +1,25 @@
-# Agente SCD
+# Atlas Agent
+
+**Agente Autônomo de Inteligência de Dados**
+
+Explore dados. Descubra padrões. Antecipe decisões.
+
+Powered by AI
+
+Identidade visual minimalista e corporativa: azul-marinho (`#101D38`), turquesa (`#5EE0D0`), roxo (`#7C5CC4`) e branco (`#FFFFFF`), com temas claro e escuro e efeitos discretos.
 
 Assistente de dados e relatórios em linguagem natural, com **FastAPI**, interface web em português, OpenAI e PostgreSQL por meio do `pg_mcp` existente.
 
 O agente planeja o trabalho, consulta a documentação, descobre as fontes, executa ferramentas, calcula estatísticas e gera arquivos. Cada execução preserva o andamento, os datasets e a origem das consultas. Também responde a tarefas gerais que não precisam de banco.
+
+Em **Escolher suas skills**, há orientações para relatórios PDF/Excel, gráficos para apresentações, projeções VAR/VECM/ARCH/GARCH, busca de padrões, qualidade dos dados, análise comparativa e síntese executiva. As ferramentas fazem cálculos reais sobre datasets existentes, preservam a origem e não executam código arbitrário. Projeções incluem pressupostos, intervalos condicionais e backtest temporal; não garantem resultados futuros.
+
+**Importe seus dados** aceita XLSX, XLS e CSV com inferência de cabeçalhos e tipos por IA. Os datasets ficam em Parquet na pasta `temp`, isolados por sessão, sem inserir o conteúdo no SQLite. Conversas e relatórios que usam essas importações também são temporários. Nova conversa ou recarga da página apaga a sessão anterior; baixe os arquivos que quiser guardar.
+
+Em **Queries**, salve, edite e execute consultas favoritas somente leitura. Digite **?**
+no campo de conversa para buscar uma favorita e selecioná-la com Enter ou clique;
+inclua a pergunta e envie para o agente. Você também pode anexar um resultado já executado.
+As definições ficam salvas nesta instalação entre conversas e reinícios.
 
 ## Executar
 
@@ -13,6 +30,13 @@ uv run app.py
 ```
 
 O `uv` instala as dependências do `uv.lock` automaticamente na primeira execução.
+
+O login ScdAuth por JWT é opcional (`SSO_ENABLED=true`), com recepção em `POST /login`
+por formulário, JSON ou Bearer, e sessão local por cookie. Configure a chave pública,
+target e issuer conforme [operação SSO](docs/operations.md#login-jwt-scdauth).
+O histórico continua compartilhado entre usuários autenticados.
+O bypass em `GET /login` exige `ENVIRONMENT=development` e execução com
+`uv run app.py --development` ao mesmo tempo.
 
 - Interface: <http://127.0.0.1:8080>
 - API interativa: <http://127.0.0.1:8080/docs>
@@ -42,14 +66,14 @@ MCP_VERIFY_SSL=false
 
 A verificação TLS do MCP foi desativada **por solicitação do usuário**, porque o certificado interno não é reconhecido pelo ambiente. A conexão continua usando HTTPS. Em instalações com CA confiável, use `MCP_VERIFY_SSL=true` e, se necessário, `MCP_CA_BUNDLE=C:/certificados/ca.pem`. Essa opção é independente de `OPENAI_VERIFY_SSL`.
 
-**Conexão validada nesta instalação:** o cliente descobriu os databases, executou `SELECT current_database(), 1` em `cora` e listou suas tabelas usando HTTPS e a chave existente. Um bloqueio de origem HTTP 403 ocorreu no primeiro teste e deixou de ocorrer na validação final. Se reaparecer, confira `MCP_ALLOWED_CLIENT_NETWORKS` no servidor e a origem vista pelo reverse proxy. O botão **Testar MCP** verifica a conexão. Credenciais e políticas de rede do servidor não são alteradas pela aplicação.
+**Conexão validada nesta instalação:** o cliente descobriu os databases, executou `SELECT current_database(), 1` em `cora` e listou suas tabelas usando HTTPS e a chave existente. Um bloqueio de origem HTTP 403 ocorreu no primeiro teste e deixou de ocorrer na validação final. Se reaparecer, confira `MCP_ALLOWED_CLIENT_NETWORKS` no servidor e a origem vista pelo reverse proxy. O endpoint autenticado GET /api/connections/pg-mcp verifica a conexão. Credenciais e políticas de rede do servidor não são alteradas pela aplicação.
 
 ## Como usar
 
 1. Abra a interface e descreva o resultado esperado, o período e os critérios.
-2. Para dados locais, anexe um CSV UTF-8 com cabeçalho; vírgula e ponto e vírgula são aceitos.
+2. Para dados locais, use **Anexar arquivos** e selecione até 10 arquivos PDF, XLSX, CSV UTF-8, DOCX ou PPTX. Planilhas fornecem dados tabulares; documentos fornecem texto e tabelas com localização. PDFs digitalizados exigem OCR prévio. Consulte os limites e detalhes de extração em [Operação](docs/operations.md#anexos-para-análise).
 3. Acompanhe o plano e as ferramentas. Expanda uma etapa para conferir as evidências.
-4. Baixe os arquivos gerados. Abra o HTML baixado e use imprimir/salvar em PDF se precisar desse formato.
+4. Baixe os arquivos gerados. Para PDF, peça um relatório em PDF com gráficos: o agente gera o arquivo diretamente.
 5. Faça uma pergunta adicional na mesma conversa para continuar a análise, ou escolha **Nova conversa**.
 
 Exemplos:
@@ -67,11 +91,11 @@ Exemplos:
 | Recurso | Comportamento |
 | --- | --- |
 | Conversas e execuções | Histórico local em SQLite, acompanhamento por polling, fila e cancelamento |
-| Documentação | Busca textual e leitura de `.md`, `.txt`, `.rst` e `.sql` em `docs/` e documentação do MCP |
+| Documentação | Busca textual e leitura em `docs/`, documentação do MCP e skill de relatórios PDF |
 | PostgreSQL | Descoberta de databases, tabelas e colunas; consultas SELECT pelo MCP |
-| CSV | Upload limitado, dataset persistido e reutilização no contexto da conversa |
+| Anexos | Seleção múltipla de PDF, XLSX, CSV, DOCX e PPTX; datasets persistidos com origem e avisos de extração |
 | Análise | Estatísticas, tipos, nulos, filtros, ordenação, seleção, deduplicação e agregação |
-| Relatórios | Markdown e HTML com metodologia, tabelas, origem e gráfico de barras opcional |
+| Relatórios | PDF com gráficos vetoriais de barras/linhas, resumo executivo, seções, metodologia e fontes; também Markdown e HTML |
 | Exportações | CSV, Excel com aba de origem e JSON com metadados |
 | Interface | Responsiva, navegação por teclado, rótulos e avisos de andamento |
 | API | Contratos validados, documentação OpenAPI e autenticação opcional por Bearer |
@@ -92,6 +116,7 @@ tools/data_tools.py           # ferramentas validadas de consulta, análise e ex
 frontend/                     # interface HTML/CSS/JS, sem build Node
 docs/                         # arquitetura, operação e regras de negócio
 skills/pg_mcp/                # material original da integração, preservado
+skills/pdf-report/SKILL.md     # orientação de relatórios PDF consultável pelo agente
 tests/                        # testes isolados, sem chamadas externas
 data/                         # criado ao executar; ignorado pelo Git
 ```
@@ -116,3 +141,4 @@ A validação incluiu testes de SQL, limites, transformações, preservação de
 - [Configuração, execução e operação](docs/operations.md)
 - [API e exemplos de integração](docs/api.md)
 - [Contrato original do pg_mcp](skills/pg_mcp/pg_mcp_docs.md)
+- [Skill de relatórios em PDF](skills/pdf-report/SKILL.md)

@@ -1,0 +1,1 @@
+A métrica vendas usa o mês de competência.

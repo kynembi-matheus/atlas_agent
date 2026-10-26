@@ -18,18 +18,6 @@ from repositories.local_store import Store, now
 from tools.data_tools import Toolbox, validate_sql
 
 
-@pytest.fixture
-def settings(tmp_path):
-    return Settings(_env_file=None, data_dir=tmp_path / 'data', docs_dir=tmp_path / 'docs',
-                    openai_api_key=SecretStr('test-key'), mcp_api_key=SecretStr('test-mcp-key'),
-                    max_query_rows=10)
-
-
-@pytest.fixture
-def store(settings):
-    return Store(settings.data_dir)
-
-
 def new_run(status='running'):
     return Run(id=str(uuid4()), conversation_id=str(uuid4()), prompt='Analisar dados',
                status=status, created_at=now(), updated_at=now())
@@ -221,15 +209,58 @@ async def test_cancel_running_and_queued(settings, store):
 
 
 async def test_step_limit_and_conversation_lock(settings, store):
-    settings.max_agent_steps = 1
-    llm = ScriptLLM([('list_databases', {})])
+    settings.max_agent_steps = 2
+    llm = ScriptLLM([('list_databases', {}), 'Descobri cora e outro; a análise ficou pendente.'])
     manager = RunManager(Agent(settings, store, FakeMCP(), llm))
     first = manager.submit(RunRequest(prompt='Explore'))
     with pytest.raises(AgentError, match='andamento'):
         manager.submit(RunRequest(prompt='Continuar', conversation_id=first.conversation_id))
     await manager.tasks[first.id]
-    assert store.get_run(first.id).status == 'failed'
-    assert 'Limite de etapas' in store.get_run(first.id).error
+    finished = store.get_run(first.id)
+    assert finished.status == 'completed'
+    assert 'limite de etapas atingido' in finished.answer
+    assert 'análise ficou pendente' in finished.answer
+    assert len(llm.inputs) == 2
+    assert llm.inputs[-1]['tools'] == []
+
+
+def test_agent_step_budget_is_at_most_60():
+    from pydantic import ValidationError
+    assert Settings(_env_file=None).max_agent_steps == 60
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, max_agent_steps=61)
+
+
+async def test_final_step_does_not_execute_tools(settings, store):
+    settings.max_agent_steps = 1
+    mcp = FakeMCP()
+    llm = ScriptLLM([('list_databases', {})])
+    with pytest.raises(AgentError, match='síntese'):
+        await Agent(settings, store, mcp, llm).execute(new_run(), RunRequest(prompt='Explore'))
+    assert not mcp.calls
+
+
+async def test_independent_tools_share_one_round(settings, store):
+    def batch(_):
+        return SimpleNamespace(output=[
+            SimpleNamespace(type='function_call', name='update_plan',
+                            arguments=json.dumps({'steps': ['Descobrir fontes']}), call_id='plan'),
+            SimpleNamespace(type='function_call', name='list_databases', arguments='{}', call_id='db'),
+        ], output_text='')
+
+    class BatchLLM(ScriptLLM):
+        async def create(self, **kwargs):
+            if not self.inputs:
+                self.inputs.append(kwargs)
+                return batch(kwargs)
+            return await super().create(**kwargs)
+
+    llm = BatchLLM(['Bancos descobertos.'])
+    run = new_run()
+    await Agent(settings, store, FakeMCP(), llm).execute(run, RunRequest(prompt='Explore'))
+    assert len(llm.inputs) == 2
+    assert llm.inputs[0]['parallel_tool_calls'] is True
+    assert len([e for e in run.events if e['kind'] == 'tool_result']) == 2
 
 
 def test_persistence_recovers_interrupted_runs(store):
@@ -253,7 +284,7 @@ def test_api_auth_upload_download_and_validation(settings):
         assert response.status_code == 200, response.text
         assert response.json()['row_count'] == 2
         assert client.get('/api/datasets/' + response.json()['dataset_id']).status_code == 200
-        assert client.post('/api/datasets/upload', files={'file': ('dados.xlsx', b'bad')}).status_code == 415
+        assert client.post('/api/datasets/upload', files={'file': ('dados.xlsx', b'bad')}).status_code == 422
         assert client.get('/api/runs/not-a-uuid').status_code == 422
         assert client.post('/api/runs', json={'prompt': '  '}).status_code == 409
         assert client.get('/api/connections/pg-mcp').json()['connected']
@@ -293,3 +324,98 @@ def test_single_column_csv_has_no_false_delimiter(settings):
         assert response.status_code == 200
         assert response.json()['columns'] == ['valor']
         assert response.json()['preview'] == [{'valor': 10}, {'valor': 20}]
+
+
+async def test_numeric_text_requires_explicit_conversion(settings, store):
+    original = store.save_dataset([{'codigo': '001', 'valor': '10.50'},
+                                   {'codigo': '002', 'valor': '20.25'},
+                                   {'codigo': '003', 'valor': None}], {'kind': 'test'})
+    tools = Toolbox(settings, store, FakeMCP(), new_run())
+    stats = await tools.call('analyze_dataset', {'dataset_id': original['id']})
+    assert set(stats['numeric_text_columns']) == {'codigo', 'valor'}
+    assert stats['warnings']
+    with pytest.raises(AgentError, match='to_numeric'):
+        await tools.call('transform_dataset', {'dataset_id': original['id'], 'operations': [
+            {'op': 'group', 'aggregations': {'valor': 'sum'}}]})
+    converted = await tools.call('transform_dataset', {'dataset_id': original['id'], 'operations': [
+        {'op': 'to_numeric', 'columns': ['valor']}]})
+    assert converted['preview'][0] == {'codigo': '001', 'valor': 10.5}
+    stats = await tools.call('analyze_dataset', {'dataset_id': converted['dataset_id']})
+    assert stats['statistics']['valor']['mean'] == 15.375
+    assert stats['null_counts']['valor'] == 1
+    assert store.get_dataset(original['id'])['rows'][0]['valor'] == '10.50'
+
+
+@pytest.mark.parametrize('value', ['1.234,56', 'invalid-private-value', 'inf', ''])
+async def test_numeric_conversion_refuses_invalid_values(settings, store, value):
+    original = store.save_dataset([{'valor': value}], {'kind': 'test'})
+    tools = Toolbox(settings, store, FakeMCP(), new_run())
+    with pytest.raises(AgentError, match='Conversão numérica recusada') as error:
+        await tools.call('transform_dataset', {'dataset_id': original['id'], 'operations': [
+            {'op': 'to_numeric', 'columns': ['valor']}]})
+    if value:
+        assert value not in str(error.value)
+    with store.connect() as db:
+        assert db.execute('SELECT COUNT(*) FROM datasets').fetchone()[0] == 1
+
+
+async def test_sample_warning_survives_multiple_transformations_and_reports(settings, store):
+    original = store.save_dataset([{'valor': 10}, {'valor': 20}],
+                                  {'kind': 'postgresql', 'possibly_truncated': True})
+    tools = Toolbox(settings, store, FakeMCP(), new_run())
+    result = await tools.call('transform_dataset', {'dataset_id': original['id'], 'operations': [
+        {'op': 'group', 'aggregations': {'valor': 'sum'}}]})
+    result = await tools.call('transform_dataset', {'dataset_id': result['dataset_id'], 'operations': [
+        {'op': 'select', 'columns': ['valor']}]})
+    assert result['possibly_truncated'] and result['warnings']
+    stats = await tools.call('analyze_dataset', {'dataset_id': result['dataset_id']})
+    assert stats['scope'] == 'stored_rows_only' and stats['possibly_truncated']
+    report = await tools.call('create_report', {'title': 'Amostra', 'body': 'Análise',
+                                               'dataset_ids': [result['dataset_id']]})
+    for artifact in report['artifacts']:
+        assert 'não representam totais da população' in (
+            store.artifacts_dir / artifact['filename']).read_text(encoding='utf-8')
+
+
+async def test_pagination_and_null_contains(settings, store):
+    original = store.save_dataset([{'nome': None}, {'nome': 'None'}, {'nome': 'outro'}], {'kind': 'test'})
+    tools = Toolbox(settings, store, FakeMCP(), new_run())
+    page = await tools.call('inspect_dataset', {'dataset_id': original['id'], 'offset': 1, 'limit': 1})
+    assert page['offset'] == 1 and page['next_offset'] == 2 and page['preview_only']
+    last = await tools.call('inspect_dataset', {'dataset_id': original['id'], 'offset': 2, 'limit': 1})
+    assert last['next_offset'] is None and last['preview_only']
+    filtered = await tools.call('transform_dataset', {'dataset_id': original['id'], 'operations': [
+        {'op': 'filter', 'column': 'nome', 'comparison': 'contains', 'value': 'None'}]})
+    assert filtered['preview'] == [{'nome': 'None'}]
+
+
+async def test_tool_validation_reports_field_without_echoing_input(settings, store):
+    tools = Toolbox(settings, store, FakeMCP(), new_run())
+    with pytest.raises(AgentError, match='max_rows: int_parsing') as error:
+        await tools.call('query', {'database': 'cora', 'sql': 'SELECT 1', 'max_rows': 'private-value'})
+    assert 'private-value' not in str(error.value)
+    with pytest.raises(AgentError, match='Informe column'):
+        await tools.call('transform_dataset', {'dataset_id': 'unused', 'operations': [{'op': 'filter'}]})
+
+
+async def test_agent_recovers_from_text_aggregation(settings, store):
+    original = store.save_dataset([{'valor': '10'}, {'valor': '20'}], {'kind': 'test'})
+
+    def sum_converted(kwargs):
+        output = json.loads(kwargs['input'][-1]['output'])
+        return ('transform_dataset', {'dataset_id': output['dataset_id'], 'operations': [
+            {'op': 'group', 'aggregations': {'valor': 'sum'}}]})
+
+    llm = ScriptLLM([
+        ('transform_dataset', {'dataset_id': original['id'], 'operations': [
+            {'op': 'group', 'aggregations': {'valor': 'sum'}}]}),
+        ('transform_dataset', {'dataset_id': original['id'], 'operations': [
+            {'op': 'to_numeric', 'columns': ['valor']}]}),
+        sum_converted,
+        'A soma das linhas armazenadas é 30.',
+    ])
+    run = new_run()
+    await Agent(settings, store, FakeMCP(), llm).execute(run, RunRequest(prompt='Some os valores.'))
+    assert any(e['kind'] == 'tool_error' and 'to_numeric' in e['message'] for e in run.events)
+    results = [e['result'] for e in run.events if e['kind'] == 'tool_result']
+    assert results[-1]['preview'] == [{'valor': 30}]

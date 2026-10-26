@@ -1,20 +1,32 @@
 """Ferramentas declarativas: o modelo nunca executa Python ou shell arbitrário."""
+import asyncio
 import io
 import json
 import math
 from html import escape
 from pathlib import Path
 from typing import Any, Literal
+from uuid import UUID
 
 import pandas as pd
 import sqlglot
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from sqlglot import exp
 
 from core.config import ROOT, Settings
-from integrations.pg_mcp import PgMCP
 from core.models import AgentError, Run
+from core.skill_catalog import available_skills
+from integrations.pg_mcp import PgMCP
 from repositories.local_store import Store, encode, now
+from tools.dashboards import Dashboard, create_dashboard
+from tools.excel_reports import ExcelReport, build_excel
+from tools.forecasting import ForecastRequest, estimate_forecast
+from tools.patterns import PatternRequest, investigate_patterns
+from tools.pdf_reports import PDFReport, build_pdf
+from tools.report_sources import report_source, report_warning
+from tools.report_tables import ReportTable, table_data
+
+CATALOG_DATABASES = ("synap", "deskflow", "cora", "crm_cob", "hub", "starcoop")
 
 
 class Arguments(BaseModel):
@@ -41,6 +53,14 @@ class ListDatabases(Arguments):
     """Descubra os databases permitidos antes de fazer qualquer chamada ao banco."""
 
 
+class ListImportedDatasets(Arguments):
+    """Liste os datasets importados temporários disponíveis somente na sessão atual."""
+
+
+class ListPublicDatabases(Arguments):
+    """Liste as bases do seletor permitidas e com acesso ao schema public pelo usuário MCP."""
+
+
 class ListTables(Arguments):
     """Liste tabelas e views de um database previamente descoberto."""
     database: str
@@ -50,6 +70,30 @@ class ListTables(Arguments):
 class DescribeTable(ListTables):
     """Inspecione colunas e tipos reais antes de escrever SQL."""
     table: str
+
+
+class PreviewTable(DescribeTable):
+    """Veja uma amostra de até 10 linhas de uma tabela descoberta, nunca o total da tabela."""
+
+
+def table_entries(result, schema: str) -> list[dict]:
+    """Normalize as respostas tabulares do catálogo MCP, preservando o schema."""
+    if isinstance(result, dict):
+        result = result.get("tables", result.get("rows", []))
+    if not isinstance(result, list):
+        raise AgentError("O pg_mcp não retornou uma lista de tabelas compatível.")
+    entries = []
+    for item in result:
+        if isinstance(item, str):
+            name, owner = item, schema
+        elif isinstance(item, dict):
+            name = item.get("table_name", item.get("table", item.get("tablename")))
+            owner = item.get("table_schema", item.get("schema", schema))
+        else:
+            continue
+        if isinstance(name, str) and name and isinstance(owner, str) and owner:
+            entries.append({"table": name, "schema": owner})
+    return entries
 
 
 class Query(Arguments):
@@ -69,13 +113,31 @@ class Dataset(Arguments):
     limit: int = Field(default=10, ge=1, le=100)
 
 
+class FavoriteQuery(Query):
+    """Definição de uma consulta favorita somente leitura."""
+    name: str = Field(min_length=1, max_length=150)
+    description: str = Field(default="", max_length=2000)
+
+
+class ListFavoriteQueries(Arguments):
+    """Liste as consultas favoritas salvas pelo usuário, com SQL e base de origem."""
+
+
+class RunFavoriteQuery(Arguments):
+    """Execute uma favorita pelo ID salvo, preservando SQL, base, limites e origem."""
+    query_id: UUID
+
+
 class Analyze(Arguments):
     """Calcule estatísticas, tipos e valores ausentes de um dataset, sem inventar métricas."""
     dataset_id: str
 
 
 class Operation(Arguments):
-    op: Literal["select", "drop_duplicates", "drop_nulls", "fill_nulls", "sort", "filter", "group"]
+    """select/sort/to_numeric exigem columns; filter exige column; fill_nulls exige value
+    não nulo; group exige aggregations. to_numeric aceita ponto decimal, sem coerção de erros.
+    """
+    op: Literal["select", "drop_duplicates", "drop_nulls", "fill_nulls", "sort", "filter", "group", "to_numeric"]
     columns: list[str] = Field(default_factory=list, max_length=100)
     column: str | None = None
     value: str | int | float | bool | None = None
@@ -83,11 +145,25 @@ class Operation(Arguments):
     ascending: bool = True
     aggregations: dict[str, Literal["sum", "mean", "min", "max", "count", "nunique", "median"]] = Field(default_factory=dict)
 
+    @model_validator(mode="after")
+    def validate_operation(self):
+        if self.op in {"select", "sort", "to_numeric"} and not self.columns:
+            raise ValueError("Informe columns para select, sort ou to_numeric.")
+        if self.op == "filter" and not self.column:
+            raise ValueError("Informe column para filter.")
+        if self.op == "fill_nulls" and self.value is None:
+            raise ValueError("Informe value não nulo para fill_nulls.")
+        if self.op == "group" and not self.aggregations:
+            raise ValueError("Informe aggregations para group.")
+        return self
+
 
 class Transform(Arguments):
     """Organize dados com operações sequenciais. Cria novo dataset, preservando o original.
 
     group usa columns como chaves e aggregations como {coluna: função}. Sem chaves, agrega o total.
+    to_numeric converte columns com números em texto (ponto decimal); falha se houver texto
+    inválido, sem descartá-lo. Não converta identificadores. Agregações numéricas exigem números.
     """
     dataset_id: str
     operations: list[Operation] = Field(min_length=1, max_length=12)
@@ -101,24 +177,36 @@ class Export(Arguments):
 
 
 class Report(Arguments):
-    """Gere relatório Markdown e HTML com fontes, tabelas e gráfico opcional.
+    """Gere relatório profissional Markdown e HTML com tabelas analíticas e gráfico HTML.
 
     Descreva metodologia, período, conclusões e limitações no body. HTML pode ser impresso em PDF.
     chart_x e chart_y devem ser colunas do primeiro dataset; barras mostram até 20 linhas.
+    Use contexto de negócio; não inclua nomes de tabelas, SQL ou IDs no texto.
+    Inclua tables com título, contexto e colunas selecionadas com rótulos e unidades de negócio.
+    Para o gráfico, informe chart_title, chart_context e chart_unit.
     """
     title: str = Field(max_length=150)
     body: str = Field(max_length=30000)
     dataset_ids: list[str] = Field(default_factory=list, max_length=8)
     chart_x: str | None = None
     chart_y: str | None = None
+    chart_title: str = Field(default='Comparação dos indicadores', max_length=150)
+    chart_context: str = Field(default='', max_length=1000)
+    chart_unit: str = Field(default='', max_length=30)
+    tables: list[ReportTable] = Field(default_factory=list, max_length=6)
 
 
 SCHEMAS = {
+    "create_dashboard": Dashboard,
+    "list_favorite_queries": ListFavoriteQueries, "run_favorite_query": RunFavoriteQuery,
     "update_plan": Plan, "search_docs": SearchDocs, "read_doc": ReadDoc,
-    "list_databases": ListDatabases, "list_tables": ListTables,
+    "list_databases": ListDatabases, "list_public_databases": ListPublicDatabases,
+    "list_imported_datasets": ListImportedDatasets,
+    "list_tables": ListTables, "preview_table": PreviewTable,
     "describe_table": DescribeTable, "query": Query, "inspect_dataset": Dataset,
     "analyze_dataset": Analyze, "transform_dataset": Transform,
-    "export_dataset": Export, "create_report": Report,
+    "export_dataset": Export, "create_report": Report, "create_pdf_report": PDFReport,
+    "create_excel_report": ExcelReport, "forecast_series": ForecastRequest, "find_patterns": PatternRequest,
 }
 
 
@@ -155,7 +243,31 @@ def preview(dataset: dict, offset: int = 0, limit: int = 10) -> dict:
     return {"dataset_id": dataset["id"], "row_count": len(frame),
             "columns": list(frame.columns), "source": dataset["source"],
             "preview": dataset["rows"][offset:offset + limit],
-            "preview_only": len(frame) > limit}
+            "preview_only": offset > 0 or len(frame) > limit,
+            "offset": offset,
+            "next_offset": offset + limit if offset + limit < len(frame) else None,
+            **coverage(dataset["source"])}
+
+
+def coverage(source: dict) -> dict:
+    """Propaga limites da origem mesmo depois de filtrar ou agregar uma amostra."""
+    current = source
+    truncated = False
+    extraction_warnings = []
+    while isinstance(current, dict):
+        truncated |= bool(current.get("possibly_truncated"))
+        for warning in current.get("extraction_warnings", []):
+            if warning not in extraction_warnings:
+                extraction_warnings.append(warning)
+        for warning in current.get("analysis_warnings", []):
+            if warning not in extraction_warnings:
+                extraction_warnings.append(warning)
+        current = current.get("original_source")
+    return {"possibly_truncated": truncated,
+            "scope": "stored_rows_only",
+            "warnings": ([("Origem possivelmente truncada: métricas e agregações locais não "
+                          "representam totais da população. Consulte a fonte integral ou calcule totais no SQL.")]
+                         if truncated else []) + extraction_warnings}
 
 
 def safe_spreadsheet(frame: pd.DataFrame) -> pd.DataFrame:
@@ -168,17 +280,44 @@ def safe_spreadsheet(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 class Toolbox:
-    def __init__(self, settings: Settings, store: Store, mcp: PgMCP, run: Run):
+    async def create_dashboard(self, args: Dashboard):
+        return await create_dashboard(self, args)
+
+    def __init__(self, settings: Settings, store: Store, mcp: PgMCP, run: Run | None):
         self.settings, self.store, self.mcp, self.run = settings, store, mcp, run
         self.databases: set[str] | None = None
+
+    @property
+    def query_store(self):
+        return getattr(self.store, "persistent", self.store)
+
+    async def list_favorite_queries(self, args: ListFavoriteQueries):
+        return {"queries": self.query_store.list_queries()}
+
+    async def run_favorite_query(self, args: RunFavoriteQuery):
+        item = self.query_store.get_query(str(args.query_id))
+        if item is None:
+            raise AgentError("Consulta favorita não encontrada.")
+        if self.databases is None:
+            await self.list_databases(ListDatabases())
+        return await self._query(Query.model_validate({key: item[key] for key in
+                                 ("database", "sql", "max_rows")}), {
+            "favorite_query_id": item["id"], "favorite_query_name": item["name"],
+            "favorite_query_updated_at": item["updated_at"],
+        })
 
     async def call(self, name: str, arguments: dict) -> Any:
         if name not in SCHEMAS:
             raise AgentError("Ferramenta desconhecida.")
         try:
             args = SCHEMAS[name].model_validate(arguments)
-        except ValidationError:
-            raise AgentError("Argumentos inválidos. Confira o schema da ferramenta.") from None
+        except ValidationError as exc:
+            # Retorna somente locais/tipos, nunca os valores recebidos ou contexto de exceção.
+            issues = [f"{'.'.join(map(str, error['loc'])) or 'arguments'}: {error['type']}"
+                      + (" (" + error["msg"] + ")" if error["type"] == "value_error" else "")
+                      for error in exc.errors(include_input=False, include_context=False)[:8]]
+            raise AgentError("Argumentos inválidos em " + name + ": " + "; ".join(issues)
+                             + ". Confira os campos e requisitos no schema da ferramenta.") from None
         try:
             return await getattr(self, name)(args)
         except AgentError:
@@ -194,7 +333,11 @@ class Toolbox:
 
     def documents(self) -> dict[str, Path]:
         files = {}
-        for prefix, root in {"docs": self.settings.docs_dir, "pg_mcp": ROOT / "skills/pg_mcp"}.items():
+        roots = {"docs": self.settings.docs_dir}
+        for skill in available_skills():
+            alias = skill['document_path'].split('/')[0]
+            roots[alias] = ROOT / 'skills' / skill['id']
+        for prefix, root in roots.items():
             root = root.resolve()
             for path in sorted(root.rglob("*")):
                 relative = path.relative_to(root)
@@ -208,6 +351,12 @@ class Toolbox:
 
     async def update_plan(self, args: Plan):
         return {"steps": args.steps}
+
+    async def list_imported_datasets(self, args: ListImportedDatasets):
+        return {'datasets': [{'dataset_id': item['id'], 'row_count': item['row_count'],
+                              'columns': item['columns'], 'source': item['source']}
+                             for item in getattr(self.store, 'datasets', {}).values()
+                             if item['source'].get('kind') == 'temporary_import'], 'temporary': True}
 
     async def search_docs(self, args: SearchDocs):
         terms = args.query.lower().split()
@@ -236,14 +385,41 @@ class Toolbox:
             result = result.get("databases", result.get("rows", []))
         names = {item if isinstance(item, str) else item.get("database", item.get("datname"))
                  for item in result}
-        self.databases = {name for name in names if name}
+        self.databases = {name for name in names if name} & set(CATALOG_DATABASES)
         if self.settings.allowed_databases:
             self.databases &= set(self.settings.allowed_databases)
-        return {"databases": sorted(self.databases)}
+        return {"databases": [name for name in CATALOG_DATABASES if name in self.databases]}
 
     def require_database(self, database: str):
         if self.databases is None or database not in self.databases:
             raise AgentError("Primeiro execute list_databases e escolha um database permitido.")
+
+    async def has_public_access(self, database: str) -> bool:
+        self.require_database(database)
+        sql = ("SELECT EXISTS (SELECT 1 FROM pg_catalog.pg_namespace "
+               "WHERE nspname = 'public' AND "
+               "pg_catalog.has_schema_privilege(oid, 'USAGE')) AS public_access")
+        result = await self.mcp.call("query", {"database": database, "sql": sql, "max_rows": 1})
+        rows = result.get("rows") if isinstance(result, dict) else result
+        return bool(isinstance(rows, list) and rows and isinstance(rows[0], dict)
+                    and rows[0].get("public_access") is True)
+
+    async def list_public_databases(self, args: ListPublicDatabases):
+        discovered = await self.list_databases(ListDatabases())
+        semaphore = asyncio.Semaphore(4)
+
+        async def accessible(database):
+            async with semaphore:
+                try:
+                    return database if await self.has_public_access(database) else None
+                except AgentError:
+                    # CONNECT descoberto não garante acesso ao schema ou disponibilidade.
+                    return None
+
+        candidates = [name for name in CATALOG_DATABASES if name in discovered["databases"]]
+        names = await asyncio.gather(*(accessible(name) for name in candidates))
+        self.databases = {name for name in names if name is not None}
+        return {"databases": [name for name in CATALOG_DATABASES if name in self.databases]}
 
     async def list_tables(self, args: ListTables):
         self.require_database(args.database)
@@ -253,7 +429,32 @@ class Toolbox:
         self.require_database(args.database)
         return await self.mcp.call("describe_table", args.model_dump(by_alias=True))
 
+    async def preview_table(self, args: PreviewTable):
+        tables = table_entries(await self.list_tables(ListTables(
+            database=args.database, schema=args.schema_name)), args.schema_name)
+        if {"table": args.table, "schema": args.schema_name} not in tables:
+            raise AgentError("Tabela não encontrada no schema e database selecionados.")
+        # Identificadores são delimitados individualmente; nunca interpolar SQL do cliente.
+        def quote(value):
+            return '"' + value.replace('"', '""') + '"'
+        limit = min(10, self.settings.max_query_rows, self.settings.max_dataset_rows)
+        sql = validate_sql(f"SELECT * FROM {quote(args.schema_name)}.{quote(args.table)} LIMIT {limit}")
+        result = await self.mcp.call("query", {"database": args.database, "sql": sql, "max_rows": limit})
+        rows = result.get("rows") if isinstance(result, dict) else result
+        if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+            raise AgentError("O pg_mcp não retornou uma lista de linhas compatível.")
+        dataset = self.store.save_dataset(rows[:limit], {
+            "kind": "postgresql", "database": args.database, "schema": args.schema_name,
+            "table": args.table, "sql": sql, "max_rows": limit, "sample_only": True,
+            "possibly_truncated": len(rows) >= limit or bool(isinstance(result, dict) and result.get("truncated")),
+            "queried_at": now(),
+        }, self.run.id if self.run else None)
+        return {**preview(dataset), "sample_only": True}
+
     async def query(self, args: Query):
+        return await self._query(args)
+
+    async def _query(self, args: Query, source: dict | None = None):
         self.require_database(args.database)
         sql = validate_sql(args.sql)
         limit = min(args.max_rows, self.settings.max_query_rows, self.settings.max_dataset_rows)
@@ -264,8 +465,9 @@ class Toolbox:
         truncated = len(rows) >= limit or bool(isinstance(result, dict) and result.get("truncated"))
         dataset = self.store.save_dataset(rows[:limit], {
             "kind": "postgresql", "database": args.database, "sql": sql,
+            **(source or {}),
             "max_rows": limit, "possibly_truncated": truncated, "queried_at": now(),
-        }, self.run.id)
+        }, self.run.id if self.run else None)
         return preview(dataset)
 
     async def inspect_dataset(self, args: Dataset):
@@ -275,15 +477,31 @@ class Toolbox:
         dataset = self.dataset(args.dataset_id)
         frame = pd.DataFrame(dataset["rows"])
         statistics = json.loads(frame.describe(include="all").to_json()) if not frame.empty else {}
+        numeric_text_columns = [column for column in frame.columns
+                                if not pd.api.types.is_numeric_dtype(frame[column])
+                                and not frame[column].dropna().empty
+                                and pd.to_numeric(frame[column].dropna(), errors="coerce").notna().all()]
+        quality = coverage(dataset["source"])
+        if numeric_text_columns:
+            quality["warnings"].append("Colunas com números em texto: confirme o significado e use "
+                                       "to_numeric antes de calcular métricas; preserve identificadores.")
         return {"dataset_id": args.dataset_id, "row_count": len(frame),
                 "null_counts": frame.isna().sum().to_dict(),
                 "dtypes": frame.dtypes.astype(str).to_dict(), "statistics": statistics,
-                "source": dataset["source"]}
+                "numeric_text_columns": numeric_text_columns,
+                "source": dataset["source"], **quality}
 
     async def transform_dataset(self, args: Transform):
         original = self.dataset(args.dataset_id)
         frame = pd.DataFrame(original["rows"])
         for op in args.operations:
+            required = set(op.columns) | set(op.aggregations)
+            if op.column:
+                required.add(op.column)
+            missing = required - set(frame.columns)
+            if missing:
+                raise AgentError("Colunas não encontradas: " + ", ".join(sorted(missing))
+                                 + ". Use inspect_dataset para conferir as colunas disponíveis.")
             if op.op == "select":
                 frame = frame[op.columns]
             elif op.op == "drop_duplicates":
@@ -298,13 +516,28 @@ class Toolbox:
             elif op.op == "filter":
                 series = frame[op.column]
                 if op.comparison == "contains":
-                    mask = series.astype(str).str.contains(str(op.value), regex=False, na=False)
+                    mask = series.astype("string").str.contains(str(op.value), regex=False, na=False)
                 else:
                     mask = getattr(series, op.comparison)(op.value)
                 frame = frame[mask]
+            elif op.op == "to_numeric":
+                for column in op.columns:
+                    try:
+                        converted = pd.to_numeric(frame[column], errors="raise")
+                        if (converted.isna() & frame[column].notna()).any():
+                            raise ValueError("conversion lost a value")
+                        if any(not math.isfinite(value) for value in converted.dropna()):
+                            raise ValueError("non-finite")
+                        frame[column] = converted
+                    except (ValueError, TypeError):
+                        raise AgentError("Conversão numérica recusada na coluna " + column
+                                         + ". Há valores incompatíveis; confira os dados e o separador "
+                                         "decimal. Nenhum dataset foi salvo.") from None
             elif op.op == "group":
-                if not op.aggregations:
-                    raise AgentError("Informe aggregations para agrupar.")
+                for column, function in op.aggregations.items():
+                    if function in {"sum", "mean", "median"} and not pd.api.types.is_numeric_dtype(frame[column]):
+                        raise AgentError("A agregação " + function + " exige números na coluna "
+                                         + column + ". Confirme o tipo e use to_numeric ou CAST no SQL.")
                 if op.columns:
                     frame = frame.groupby(op.columns, dropna=False).agg(op.aggregations).reset_index()
                 else:
@@ -314,7 +547,8 @@ class Toolbox:
             "kind": "transformation", "parent_dataset_id": args.dataset_id,
             "operations": [op.model_dump() for op in args.operations],
             "original_source": original["source"],
-        }, self.run.id)
+            "possibly_truncated": coverage(original["source"])["possibly_truncated"],
+        }, self.run.id if self.run else None)
         return preview(dataset)
 
     async def export_dataset(self, args: Export):
@@ -336,6 +570,34 @@ class Toolbox:
         self.run.artifacts.append(artifact)
         return artifact
 
+    async def create_excel_report(self, args: ExcelReport):
+        datasets = [self.dataset(key) for key in args.dataset_ids]
+        warnings = {dataset['id']: coverage(dataset['source'])['warnings'] for dataset in datasets}
+        content = await asyncio.to_thread(build_excel, args, datasets, warnings)
+        artifact = self.store.save_artifact(self.run.id, args.title, 'xlsx', content)
+        self.run.artifacts.append(artifact)
+        return {'artifacts': [artifact], 'warnings': [warning for values in warnings.values() for warning in values]}
+
+    async def forecast_series(self, args: ForecastRequest):
+        original = self.dataset(args.dataset_id)
+        result = await asyncio.to_thread(estimate_forecast, args, original)
+        dataset = self.store.save_dataset(result.pop('rows'), {
+            'kind': 'forecast', 'parent_dataset_id': original['id'], 'original_source': original['source'],
+            'model': args.model, 'parameters': args.model_dump(), 'diagnostics': result['diagnostics'],
+            'backtest': result['backtest'], 'forecast_only': True, 'queried_at': now(),
+            'analysis_warnings': result['warnings'],
+            'possibly_truncated': coverage(original['source'])['possibly_truncated'],
+        }, self.run.id)
+        return {**preview(dataset), **result, 'warnings': coverage(original['source'])['warnings'] + result['warnings']}
+
+    async def find_patterns(self, args: PatternRequest):
+        dataset = self.dataset(args.dataset_id)
+        result = await asyncio.to_thread(investigate_patterns, args, dataset)
+        quality = coverage(dataset['source'])
+        return {**result, 'dataset_id': dataset['id'], 'source': dataset['source'],
+                'scope': quality['scope'], 'possibly_truncated': quality['possibly_truncated'],
+                'warnings': quality['warnings'] + result['warnings']}
+
     async def create_report(self, args: Report):
         datasets = [self.dataset(key) for key in args.dataset_ids]
         chart = ""
@@ -349,16 +611,38 @@ class Toolbox:
                     bars.append(f'<div class="bar"><span>{escape(str(label))}</span>'
                                 f'<meter min="0" max="{max_value}" value="{abs(value)}"></meter>'
                                 f'<strong>{value:,.2f}</strong></div>')
-            chart = '<section><h2>Gráfico (magnitude; sinal no rótulo)</h2>' + ''.join(bars) + '</section>'
-        text = f"# {args.title}\n\n{args.body}\n\n## Fontes e metodologia\n"
-        tables = []
+            chart = ('<section><h2>' + escape(args.chart_title) + '</h2><p>' + escape(args.chart_context)
+                     + '</p><p>Unidade: ' + escape(args.chart_unit or 'Não informada')
+                     + '. Barras representam a magnitude; o rótulo preserva o sinal.</p>'
+                     + ''.join(bars) + '</section>')
+        analytical_md, analytical_html = '', ''
+        by_id = {dataset['id']: dataset for dataset in datasets}
+        for spec in args.tables:
+            headers, values, caption = table_data(spec, by_id)
+            # Escape delimitadores Markdown sem alterar o conteúdo do HTML.
+            def md_cell(value):
+                return value.replace('\\', '\\\\').replace('|', '\\|').replace('\n', ' ')
+
+            analytical_md += f'\n\n## {spec.title}\n\n{spec.context}\n\n'
+            analytical_md += '| ' + ' | '.join(map(md_cell, headers)) + ' |\n'
+            analytical_md += '| ' + ' | '.join('---' for _ in headers) + ' |\n'
+            analytical_md += ''.join('| ' + ' | '.join(map(md_cell, row)) + ' |\n' for row in values)
+            analytical_md += f'\n{caption}\n\nFonte: {report_source(by_id[spec.dataset_id]["source"])}\n'
+            analytical_html += ('<section><h2>' + escape(spec.title) + '</h2><p>' + escape(spec.context)
+                                + '</p><table><thead><tr>' + ''.join('<th>' + escape(h) + '</th>' for h in headers)
+                                + '</tr></thead><tbody>' + ''.join('<tr>' + ''.join('<td>' + escape(v) + '</td>' for v in row)
+                                + '</tr>' for row in values) + '</tbody></table><p>' + escape(caption) + '</p><p>Fonte: '
+                                + escape(report_source(by_id[spec.dataset_id]['source'])) + '</p></section>')
+        text = f"# {args.title}\n\n{args.body}\n\n## Fontes e limites\n"
+        sources = list(dict.fromkeys(report_source(dataset['source']) for dataset in datasets))
+        text += ''.join(f"\nFonte: {source}\n" for source in sources)
+        notes = ['<p>Fonte: ' + escape(source) + '</p>' for source in sources]
         for dataset in datasets:
-            frame = pd.DataFrame(dataset["rows"])
-            source = encode(dataset["source"])
-            text += f"\nDataset: {dataset['id']} — {len(frame)} linhas\n\n```json\n{source}\n```\n"
-            tables.append(f'<h2>Dados · {len(frame)} linhas (prévia de até 100)</h2>'
-                          + frame.head(100).to_html(index=False, escape=True)
-                          + '<h3>Origem</h3><pre>' + escape(source) + '</pre>')
+            warnings = coverage(dataset["source"])["warnings"]
+            for warning in warnings:
+                text += f"\nLimitação: {report_warning(warning)}\n"
+                notes.append('<p><strong>Limitação:</strong> ' + escape(report_warning(warning)) + '</p>')
+        text += analytical_md
         html = ('<!doctype html><html lang="pt-BR"><meta charset="utf-8">'
                 '<meta name="viewport" content="width=device-width,initial-scale=1">'
                 f'<title>{escape(args.title)}</title><style>'
@@ -368,8 +652,17 @@ class Toolbox:
                 '.bar span{width:220px;overflow-wrap:anywhere}meter{flex:1}h1{font-size:32px}'
                 '@media print{body{margin:0}table{font-size:10px}}</style>'
                 f'<body><h1>{escape(args.title)}</h1><pre>{escape(args.body)}</pre>'
-                + chart + ''.join(tables) + f'<footer>Gerado em {now()}</footer></body></html>')
+                + chart + analytical_html + ''.join(notes) + f'<footer>Gerado em {now()}</footer></body></html>')
         artifacts = [self.store.save_artifact(self.run.id, args.title, extension, content.encode("utf-8"))
                      for extension, content in (("md", text), ("html", html))]
         self.run.artifacts.extend(artifacts)
         return {"artifacts": artifacts}
+
+    async def create_pdf_report(self, args: PDFReport):
+        datasets = [self.dataset(key) for key in args.dataset_ids]
+        warnings = {dataset['id']: coverage(dataset['source'])['warnings'] for dataset in datasets}
+        content = build_pdf(args, datasets, warnings, now())
+        artifact = self.store.save_artifact(self.run.id, args.title, 'pdf', content)
+        self.run.artifacts.append(artifact)
+        return {'artifacts': [artifact], 'dataset_ids': args.dataset_ids,
+                'warnings': [warning for items in warnings.values() for warning in items]}

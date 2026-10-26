@@ -1,0 +1,117 @@
+- generic [ref=f1e1]:
+  - link "Pular para o pedido" [ref=f1e3] [cursor=pointer]:
+    - /url: "#prompt"
+  - generic [ref=f1e4]:
+    - complementary "Navegação e histórico" [ref=f1e5]:
+      - link "Agente SCD, início" [ref=f1e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=f1e7]: s
+        - generic [ref=f1e8]: agentescd
+      - button "Nova conversa" [ref=f1e9] [cursor=pointer]: ＋ Nova conversa
+      - generic [ref=f1e10]:
+        - generic [ref=f1e11]: Histórico
+        - button "Atualizar histórico" [ref=f1e12] [cursor=pointer]: ↻
+      - navigation "Conversas recentes" [ref=f1e13]:
+        - 'button "Use a skill \"Síntese executiva e plano de ação\". Leia \"executive_briefing/SKILL.md\" com read_doc e siga suas orientações para este pedido. Tabela PostgreSQL: database=\"cora\", schema=\"public\", tabela=\"crm_atendimento_notas\". Resumo executivo Concluída" [ref=f1e14] [cursor=pointer]':
+          - text: "Use a skill \"Síntese executiva e plano de ação\". Leia \"executive_briefing/SKILL.md\" com read_doc e siga suas orientações para este pedido. Tabela PostgreSQL: database=\"cora\", schema=\"public\", tabela=\"crm_atendimento_notas\". Resumo executivo"
+          - generic [ref=f1e15]: Concluída
+        - 'button "Tabela PostgreSQL: database=\"deskflow\", schema=\"public\", tabela=\"chamados\". chamados que estão pendentes hoje Concluída" [ref=f1e16] [cursor=pointer]':
+          - text: "Tabela PostgreSQL: database=\"deskflow\", schema=\"public\", tabela=\"chamados\". chamados que estão pendentes hoje"
+          - generic [ref=f1e17]: Concluída
+        - button "Use a skill Relatórios em Excel para criar um relatório profissional com resumo executivo, indicadores, tabelas e gráficos editáveis. Reutilize os dados disponíveis e confirme o período e o objetivo necessários. Use títulos e rótulos de negócio, preserve as limitações dos dados e informe apenas Banco de dados interno para fontes internas. Concluída" [ref=f1e18] [cursor=pointer]:
+          - text: Use a skill Relatórios em Excel para criar um relatório profissional com resumo executivo, indicadores, tabelas e gráficos editáveis. Reutilize os dados disponíveis e confirme o período e o objetivo necessários. Use títulos e rótulos de negócio, preserve as limitações dos dados e informe apenas Banco de dados interno para fontes internas.
+          - generic [ref=f1e19]: Concluída
+        - button "Use a skill Relatórios em Excel para criar um relatório profissional com resumo executivo, indicadores, tabelas e gráficos editáveis. Reutilize os dados disponíveis e confirme o período e o objetivo necessários. Use títulos e rótulos de negócio, preserve as limitações dos dados e informe apenas Banco de dados interno para fontes internas. Cancelada" [ref=f1e20] [cursor=pointer]:
+          - text: Use a skill Relatórios em Excel para criar um relatório profissional com resumo executivo, indicadores, tabelas e gráficos editáveis. Reutilize os dados disponíveis e confirme o período e o objetivo necessários. Use títulos e rótulos de negócio, preserve as limitações dos dados e informe apenas Banco de dados interno para fontes internas.
+          - generic [ref=f1e21]: Cancelada
+        - button "Use a skill Relatórios em Excel para criar um relatório profissional com resumo executivo, indicadores, tabelas e gráficos editáveis. Reutilize os dados disponíveis e confirme o período e o objetivo necessários. Use títulos e rótulos de negócio, preserve as limitações dos dados e informe apenas Banco de dados interno para fontes internas. Concluída" [ref=f1e22] [cursor=pointer]:
+          - text: Use a skill Relatórios em Excel para criar um relatório profissional com resumo executivo, indicadores, tabelas e gráficos editáveis. Reutilize os dados disponíveis e confirme o período e o objetivo necessários. Use títulos e rótulos de negócio, preserve as limitações dos dados e informe apenas Banco de dados interno para fontes internas.
+          - generic [ref=f1e23]: Concluída
+      - link "Ver mais" [ref=f1e24] [cursor=pointer]:
+        - /url: /historico
+      - button "Abrir perfil e uso" [ref=f1e25] [cursor=pointer]:
+        - generic [ref=f1e30]:
+          - strong [ref=f1e31]: Usuário
+          - generic [ref=f1e32]: Sessão local
+        - generic [aria-hidden] [ref=f1e33]: ⋯
+    - main [ref=f1e34]:
+      - generic [ref=f1e36]:
+        - generic [ref=f1e37]:
+          - heading "Conversa" [level=1] [ref=f1e39]
+          - navigation "Dados e skills" [ref=f1e40]:
+            - button "Dados" [ref=f1e41] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f1e42]: ▥
+              - text: Dados
+            - button "Importar" [ref=f1e43] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f1e44]: ↑
+              - text: Importar
+            - button "Skills" [ref=f1e45] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f1e46]: ✳
+              - text: Skills
+            - button "Queries" [ref=f1e47] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f1e48]: ☆
+              - text: Queries
+        - generic [ref=f1e49]:
+          - heading "O que vamos analisar?" [level=2] [ref=f1e50]
+          - generic [ref=f1e51]:
+            - button "Criar relatório" [ref=f1e52] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f1e53]: ▤
+              - text: Criar relatório
+            - button "Encontrar padrões" [ref=f1e54] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f1e55]: ⌕
+              - text: Encontrar padrões
+            - button "Fazer projeções" [ref=f1e56] [cursor=pointer]:
+              - generic [aria-hidden] [ref=f1e57]: ↗
+              - text: Fazer projeções
+        - region "Enviar um pedido" [ref=f1e58]:
+          - generic "Consultas favoritas selecionadas"
+          - generic [ref=f1e59]:
+            - generic [ref=f1e60]: O que você precisa analisar?
+            - textbox "O que você precisa analisar?" [ref=f1e61]:
+              - /placeholder: Pergunte sobre seus dados. / skills · @ dados · ? queries
+            - generic [ref=f1e62]:
+              - generic [ref=f1e63]:
+                - generic [ref=f1e64] [cursor=pointer]:
+                  - generic [aria-hidden] [ref=f1e65]: ＋
+                  - text: Anexar
+                - button "Anexar PDF, XLSX, CSV, DOCX ou PPTX" [ref=f1e66]
+              - button "Enviar" [ref=f1e67] [cursor=pointer]: Enviar ↑
+          - generic [ref=f1e68]:
+            - generic [ref=f1e69]: / skills · @ dados · ? queries
+            - generic [ref=f1e70]: Ctrl + Enter para enviar
+        - generic [ref=f1e71]:
+          - generic [ref=f1e72]: gpt-6-luna
+          - link "Documentação ↗" [ref=f1e75] [cursor=pointer]:
+            - /url: /docs
+  - dialog [ref=f1e76]:
+    - generic [ref=f1e77]:
+      - heading "Perfil e uso" [level=2] [ref=f1e78]
+      - button "Fechar perfil" [ref=f1e79] [cursor=pointer]: ×
+    - generic [ref=f1e85]:
+      - strong [ref=f1e86]: Usuário
+      - paragraph [ref=f1e87]: Perfil local
+    - region [ref=f1e88]:
+      - heading "Estatísticas de uso" [level=3] [ref=f1e89]
+      - paragraph [ref=f1e90]: Histórico compartilhado desta instalação e sessão temporária atual.
+      - status
+      - generic [ref=f1e91]:
+        - generic [ref=f1e92]:
+          - term [ref=f1e93]: Conversas
+          - definition [ref=f1e94]: "22"
+        - generic [ref=f1e95]:
+          - term [ref=f1e96]: Pedidos enviados
+          - definition [ref=f1e97]: "25"
+        - generic [ref=f1e98]:
+          - term [ref=f1e99]: Análises concluídas
+          - definition [ref=f1e100]: "20"
+        - generic [ref=f1e101]:
+          - term [ref=f1e102]: Arquivos gerados
+          - definition [ref=f1e103]: "11"
+      - button "Atualizar estatísticas" [ref=f1e104] [cursor=pointer]
+    - region [ref=f1e105]:
+      - heading "Aparência" [level=3] [ref=f1e106]
+      - generic [ref=f1e107]:
+        - generic [ref=f1e108]:
+          - strong [ref=f1e109]: Tema escuro
+          - paragraph [ref=f1e110]: Preferência salva neste navegador.
+        - switch "Tema escuro" [checked] [active] [ref=f1e111] [cursor=pointer]

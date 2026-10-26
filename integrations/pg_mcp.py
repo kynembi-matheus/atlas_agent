@@ -26,7 +26,7 @@ class PgMCP:
                 cafile=str(self.settings.mcp_ca_bundle) if self.settings.mcp_ca_bundle else None
             )
         return httpx.AsyncClient(
-            headers=headers, timeout=timeout or httpx.Timeout(30, read=120),
+            headers=headers, timeout=timeout or httpx.Timeout(30, read=150),
             auth=auth, verify=verify,
         )
 
@@ -39,7 +39,7 @@ class PgMCP:
         try:
             async with streamablehttp_client(
                 self.settings.pg_mcp_url, headers=headers, timeout=timedelta(seconds=30),
-                sse_read_timeout=timedelta(seconds=120), httpx_client_factory=self.http_client,
+                sse_read_timeout=timedelta(seconds=150), httpx_client_factory=self.http_client,
             ) as (read, write, _):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
