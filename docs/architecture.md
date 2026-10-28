@@ -473,3 +473,7 @@ requisições sobrepostas e descarta respostas antigas ao trocar o dashboard sel
 `agents/schedule_planner.py` faz uma chamada isolada ao modelo para devolver um plano Pydantic. A chamada não dispõe das ferramentas da aplicação e não cria runs nem tarefas. A interface mantém o pedido e as opções capturados, apresenta as etapas e exige confirmação antes de revelar o formulário de data e hora. O agendamento persistido inclui `plan_steps`, que o scheduler repassa como plano confirmado na execução futura. O seletor de delegação consulta os perfis da sessão e permite reutilização ou criação respeitando o limite existente de dois.
 
 O planejamento e sua confirmacao ficam no chat; o dialogo configura somente a regra temporal. `core/schedule_recurrence.py` calcula a proxima ocorrencia diaria/semanal no fuso IANA. `finish_schedule` atualiza a regra e reserva um novo run UUID em transacao, verificando status e run_id atuais para nao ressuscitar cancelamentos ou duplicar conclusoes antigas. A pagina /agendamentos lista todas as regras por proprietario.
+
+Quando `APP_ROOT_PATH` está configurado, o proxy remove esse prefixo antes de encaminhar
+as requisições. O Atlas o aplica aos redirecionamentos de login, recursos da interface,
+URLs de API e navegação do navegador; as rotas internas continuam na raiz da aplicação.

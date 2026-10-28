@@ -86,7 +86,7 @@ def auth_router(settings: Settings, sso: SSO | None, sessions: AuthSessions | No
     def store_user_session(request, identity, claims):
         cookie = sessions.create(identity, claims, settings.sso_session_seconds,
                                  request.cookies.get(COOKIE, ''))
-        response = RedirectResponse('/', status_code=303)
+        response = RedirectResponse(settings.app_root_path + '/', status_code=303)
         response.set_cookie(COOKIE, cookie, max_age=settings.sso_session_seconds,
                             secure=cookie_secure(request), httponly=True, samesite='lax')
         return response

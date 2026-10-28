@@ -5,6 +5,23 @@
   let revision = 0;
   const text = value => typeof value === 'string' && value.trim() ? value.trim() : 'Não informado';
   const initials = name => (name || 'Usuário').trim().split(/\s+/).filter(Boolean).filter((_, index, words) => index === 0 || index === words.length - 1).map(word => Array.from(word)[0]).join('').toLocaleUpperCase('pt-BR');
+  function updatePhoto(value) {
+    let url = '';
+    try {
+      const parsed = new URL(value, window.location.href);
+      if (typeof value === 'string' && value.trim() &&
+          (parsed.protocol === 'https:' || parsed.origin === window.location.origin && parsed.protocol === 'http:')) url = parsed.href;
+    } catch (_) { /* URL ausente ou inválida. */ }
+    for (const [photoId, initialsId] of [['sidebar-user-photo', 'sidebar-user-initials'], ['profile-photo', 'profile-initials']]) {
+      const photo = $(photoId), fallback = $(initialsId);
+      photo.hidden = true;
+      fallback.hidden = false;
+      photo.onload = () => { photo.hidden = false; fallback.hidden = true; };
+      photo.onerror = () => { photo.hidden = true; fallback.hidden = false; };
+      if (url) photo.src = url;
+      else photo.removeAttribute('src');
+    }
+  }
   const syncTheme = () => toggle.setAttribute('aria-checked', String(document.documentElement.dataset.theme === 'dark'));
   syncTheme();
   toggle.addEventListener('click', () => {
@@ -34,6 +51,7 @@
       $('profile-identity').textContent = profile.identity;
       $('profile-initials').textContent = initials(profile.name);
       $('sidebar-user-initials').textContent = initials(profile.name);
+      updatePhoto(profile.photo_url);
       $('profile-access').textContent = profile.profile || '';
       $('profile-access').hidden = !profile.profile;
       for (const field of ['role', 'function', 'department']) $('profile-' + field).textContent = text(profile[field]);
@@ -78,10 +96,10 @@
     $('profile-body').setAttribute('aria-busy', 'false');
     revision++;
     try {
-      const response = await fetch('/logout', {method: 'POST', credentials: 'same-origin'});
+      const response = await fetch(appUrl('/logout'), {method: 'POST', credentials: 'same-origin'});
       if (!response.ok && response.status !== 401) throw new Error('logout');
       try { sessionStorage.removeItem('scd-import-session'); } catch (_) { /* Armazenamento indisponível. */ }
-      window.location.assign('/login?logged_out=1');
+      window.location.assign(appUrl('/login?logged_out=1'));
     } catch (_) {
       $('profile-session-feedback').textContent = 'Não foi possível sair. Tente novamente.';
       button.disabled = false;

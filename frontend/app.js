@@ -1,5 +1,8 @@
 'use strict';
 const $ = id => document.getElementById(id);
+const appRoot = document.querySelector?.('meta[name="app-root-path"]')?.content || '';
+function appUrl(path) { return appRoot + path; }
+function appPath() { const path = window.location.pathname; return appRoot && (path === appRoot || path.startsWith(appRoot + '/')) ? path.slice(appRoot.length) || '/' : path; }
 const state = {runId: null, conversationId: null, files: [], timer: null, polling: false, run: null, uploading: false, sessionId: null, sessionPromise: null};
 const statuses = {idle: 'Sem execução', queued: 'Na fila', running: 'Em andamento', completed: 'Concluída', failed: 'Com falha', cancelled: 'Cancelada'};
 
@@ -8,7 +11,7 @@ async function api(path, options = {}) {
   const headers = new Headers(options.headers || {});
   await ensureDataSession();
   headers.set('X-Data-Session', state.sessionId);
-  const response = await fetch(path, {...options, headers});
+  const response = await fetch(appUrl(path), {...options, headers});
   if (!response.ok) {
     let message = `Falha HTTP ${response.status}.`;
     try { const body = await response.json(); message = typeof body.detail === 'string' ? body.detail : 'Verifique os campos enviados.'; } catch (_) { /* Resposta sem JSON. */ }
@@ -28,9 +31,9 @@ async function rotateDataSession() {
   let previous = state.sessionId;
   try { previous = previous || sessionStorage.getItem('scd-import-session'); } catch (_) { /* Armazenamento do navegador indisponível. */ }
   if (previous) headers.set('X-Data-Session', previous);
-  let response = await fetch('/api/import-sessions', {method: 'POST', headers});
+  let response = await fetch(appUrl('/api/import-sessions'), {method: 'POST', headers});
   // Após troca de conta, o token anterior pode pertencer a outro usuário.
-  if (previous && response.status === 410) response = await fetch('/api/import-sessions', {method: 'POST'});
+  if (previous && response.status === 410) response = await fetch(appUrl('/api/import-sessions'), {method: 'POST'});
   if (!response.ok) throw new Error('Não foi possível iniciar a sessão temporária. Atualize a página.');
   state.sessionId = (await response.json()).session_id;
   try { sessionStorage.setItem('scd-import-session', state.sessionId); } catch (_) { /* Somente o identificador, nunca dados importados. */ }
@@ -60,14 +63,14 @@ async function refreshStatus() {
 }
 async function refreshHistory(options = {}) {
   const request = state.historyRequest = (state.historyRequest || 0) + 1;
-  const full = ['/sessoes', '/historico'].includes(window.location.pathname);
+  const full = ['/sessoes', '/historico'].includes(appPath());
   if (full && !options.silent) {
     $('history-feedback').textContent = 'Atualizando suas sessões…'; $('history-feedback').hidden = false;
     $('reload-history').disabled = true;
   }
   try {
     const runs = await (await api(`/api/workspace-sessions${full ? '' : '?limit=2'}`)).json();
-    if (request !== state.historyRequest || full !== ['/sessoes', '/historico'].includes(window.location.pathname)) return;
+    if (request !== state.historyRequest || full !== ['/sessoes', '/historico'].includes(appPath())) return;
     const known = new Map((state.sessionGroups || []).map(group => [group.conversation_id, group]));
     for (const group of runs) known.set(group.conversation_id, group);
     state.sessionGroups = [...known.values()];
@@ -120,7 +123,7 @@ function historyIcon(name) {
   svg.setAttribute('viewBox', '0 0 24 24');
   svg.setAttribute('class', 'ui-icon'); svg.setAttribute('aria-hidden', 'true');
   const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-  use.setAttribute('href', `/static/vendor/lucide/sprite.svg?v=0.468.0#icon-${name}`); svg.append(use); return svg;
+  use.setAttribute('href', appUrl(`/static/vendor/lucide/sprite.svg?v=0.468.0#icon-${name}`)); svg.append(use); return svg;
 }
 function sessionAgentIdentity(run) {
   for (const group of state.sessionGroups || []) {
@@ -212,18 +215,18 @@ function renderHistoryResults() {
   }
 }
 function renderHistoryPage() {
-  const full = ['/sessoes', '/historico'].includes(window.location.pathname);
+  const full = ['/sessoes', '/historico'].includes(appPath());
   $('history-page').hidden = !full;
   $('chat-page').hidden = full;
-  const dashboards = window.location.pathname === '/dashboards';
-  const detail = /^\/dashboards\/[^/]+$/.test(window.location.pathname);
-  for (const [id, active] of [['more-history', full], ['open-dashboards', dashboards || detail], ['open-schedules', window.location.pathname === '/agendamentos']]) {
+  const dashboards = appPath() === '/dashboards';
+  const detail = /^\/dashboards\/[^/]+$/.test(appPath());
+  for (const [id, active] of [['more-history', full], ['open-dashboards', dashboards || detail], ['open-schedules', appPath() === '/agendamentos']]) {
     const link = $(id);
     if (active) link.setAttribute('aria-current', 'page');
     else link.removeAttribute?.('aria-current');
   }
   document.body?.classList.toggle('dashboard-detail', detail);
-  if (window.location.pathname !== '/') {
+  if (appPath() !== '/') {
     document.body?.classList.remove('preview-open');
     for (const [panel, toggle] of [['data-preview', 'toggle-preview'], ['skills-panel', 'toggle-skills'], ['imports-panel', 'toggle-imports'], ['queries-panel', 'toggle-queries']]) {
       if ($(panel)) $(panel).hidden = true;
@@ -239,7 +242,7 @@ function renderHistoryPage() {
   if (typeof renderDashboardPage === 'function') return renderDashboardPage();
 }
 function navigatePage(path) {
-  if (window.location.pathname !== path) window.history.pushState({}, '', path);
+  if (appPath() !== path) window.history.pushState({}, '', appUrl(path));
   return renderHistoryPage();
 }
 function renderAttachments() {
@@ -311,7 +314,7 @@ function render(run) {
   for (const artifact of run.artifacts) {
     if (artifact.format === 'dashboard') {
       const link = el('a', 'artifact'); link.append(historyIcon('dashboard'), el('span', '', `${artifact.title} · Abrir dashboard`));
-      link.href = artifact.url;
+      link.href = appUrl(artifact.url);
       link.addEventListener('click', event => { event.preventDefault(); navigatePage(artifact.url); });
       $('artifacts').append(link); continue;
     }

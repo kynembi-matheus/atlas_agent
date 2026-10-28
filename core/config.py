@@ -27,12 +27,19 @@ class Settings(BaseSettings):
     internet_timeout_seconds: int = Field(default=25, ge=1, le=60)
     internet_max_bytes: int = Field(default=1048576, ge=16384, le=2097152)
     app_api_key: SecretStr = SecretStr("")
+    app_root_path: str = Field(default='', pattern=r'^(?:/[A-Za-z0-9_~-]+)*$')
     sso_enabled: bool = False
     sso_public_key: str = ""
-    sso_public_key_path: Path | None = None
+    sso_public_key_path: Path | None = Field(
+        default=None, validation_alias=AliasChoices('SSO_PUBLIC_KEY_PATH', 'PUBLIC_KEY_PATH')
+    )
     sso_expected_target: str = ""
-    sso_expected_issuer: str = "samsite"
-    sso_expected_audience: str = ""
+    sso_expected_issuer: str = Field(
+        default='samsite', validation_alias=AliasChoices('SSO_EXPECTED_ISSUER', 'JWT_EXPECTED_ISSUER')
+    )
+    sso_expected_audience: str = Field(
+        default='', validation_alias=AliasChoices('SSO_EXPECTED_AUDIENCE', 'JWT_EXPECTED_AUDIENCE')
+    )
     sso_auth_base_url: str = ""
     sso_exchange_secret: SecretStr = SecretStr("")
     sso_auth_ca_bundle: Path | None = None
@@ -54,7 +61,7 @@ class Settings(BaseSettings):
     max_agent_steps: int = Field(default=60, ge=1, le=60)
     max_query_rows: int = Field(default=5000, ge=1, le=50000)
     max_dataset_rows: int = Field(default=50000, ge=1, le=100000)
-    max_upload_bytes: int = Field(default=5 * 1024 * 1024, ge=1024, le=50 * 1024 * 1024)
+    max_upload_bytes: int = Field(default=50 * 1024 * 1024, ge=1024, le=50 * 1024 * 1024)
     max_temporary_upload_bytes: int = Field(default=500 * 1024 * 1024, ge=1024, le=500 * 1024 * 1024)
     max_temporary_expanded_bytes: int = Field(default=2 * 1024**3, ge=1024, le=4 * 1024**3)
     max_temporary_characters: int = Field(default=500 * 1024 * 1024, ge=1024, le=1024**3)

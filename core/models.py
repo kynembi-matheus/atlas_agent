@@ -51,6 +51,7 @@ class LocalProfile(BaseModel):
     department: str | None = None
     unit_number: str | int | None = None
     unit_name: str | None = None
+    photo_url: str | None = None
     auth_mode: Literal['local', 'sso', 'development'] = 'local'
     scope: str = "Suas sessões e seus arquivos são privados. Consultas favoritas são compartilhadas nesta instalação."
     usage: UsageStatistics

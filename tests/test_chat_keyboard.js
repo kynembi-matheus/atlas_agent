@@ -13,7 +13,7 @@ function setup({disabled = false, menuOpen = false} = {}) {
     dispatchEvent(event) { this.events.push(event.type); }};
   const nodes = {prompt, send: {disabled},
     'mention-menu': {hidden: !menuOpen}, 'prompt-form': {requestSubmit() { submitted++; }}};
-  const context = vm.createContext({$: id => nodes[id], Event});
+  const context = vm.createContext({appUrl: path => path, appPath: () => context.window.location.pathname, $: id => nodes[id], Event});
   vm.runInContext(source.slice(source.indexOf("$('prompt').addEventListener('keydown'"),
     source.indexOf("$('cancel-run').addEventListener('click'")), context);
   return {prompt, get submitted() { return submitted; }, key(options = {}) {
@@ -50,7 +50,7 @@ test('disabled send and handled events cannot submit', () => {
 
 test('account switch creates a fresh import session without deleting another account session', async () => {
   const requests = [], state = {sessionId: null};
-  const context = vm.createContext({state, Headers, sessionStorage: {getItem: () => 'old-user-session', setItem() {}},
+  const context = vm.createContext({appUrl: path => path, appPath: () => context.window.location.pathname, state, Headers, sessionStorage: {getItem: () => 'old-user-session', setItem() {}},
     fetch: async (_, options) => {
       requests.push(options);
       return requests.length === 1 ? {ok: false, status: 410} : {ok: true, json: async () => ({session_id: 'new-user-session'})};

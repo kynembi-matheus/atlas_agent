@@ -21,7 +21,7 @@ function harness(api) {
   const nodes = new Map(), windowEvents = {}, notices = [];
   const $ = id => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); };
   const state = {files: [], uploading: false, run: null};
-  const context = vm.createContext({$, state, api, notice: text => notices.push(text), renderAttachments() {},
+  const context = vm.createContext({appUrl: path => path, appPath: () => context.window.location.pathname, $, state, api, notice: text => notices.push(text), renderAttachments() {},
     el: (tag, cls, text) => { const node = new Node(); node.tag = tag; node.textContent = text; return node; },
     FormData: class {append(_, file) { this.file = file; }}, document: {body: new Node()},
     window: {addEventListener: (name, fn) => { windowEvents[name] = fn; }}});
@@ -75,7 +75,7 @@ test('opening importer closes the other panels and Escape restores focus', () =>
 test('session initialization is shared, uses a scoped header and replaces the previous session on reload', async () => {
   const calls = [], values = new Map([['scd-import-session', 'previous-session']]);
   const state = {sessionId: null, sessionPromise: null};
-  const context = vm.createContext({state, Headers,
+  const context = vm.createContext({appUrl: path => path, appPath: () => context.window.location.pathname, state, Headers,
     sessionStorage: {getItem: key => values.get(key), setItem: (key, value) => values.set(key, value)},
     fetch: async (url, options) => {
       calls.push({url, options});
@@ -94,7 +94,7 @@ test('session initialization is shared, uses a scoped header and replaces the pr
 test('New conversation replaces the session before resetting the chat', async () => {
   const nodes = new Map(), order = [];
   const $ = id => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); };
-  const context = vm.createContext({$, state: {uploading: false, files: [dataset]},
+  const context = vm.createContext({appUrl: path => path, appPath: () => context.window.location.pathname, $, state: {uploading: false, files: [dataset]},
     ensureDataSession: async () => order.push('ensure'), rotateDataSession: async () => order.push('rotate'),
     stopPolling: () => order.push('stop'), renderAttachments() {}, notice() {}, refreshHistory() {}, navigatePage() {}});
   const source = fs.readFileSync(path.join(__dirname, '../frontend/app.js'), 'utf8');

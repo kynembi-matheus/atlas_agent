@@ -14,7 +14,7 @@ test('navigation identifies the active section and closes chat panels on other p
     return nodes.get(id);
   };
   const classes = new Set(['preview-open']);
-  const context = vm.createContext({$, window: {location: {pathname: '/dashboards/example'}},
+  const context = vm.createContext({appUrl: path => path, appPath: () => context.window.location.pathname, $, window: {location: {pathname: '/dashboards/example'}},
     document: {body: {classList: {toggle() {}, remove: key => classes.delete(key)}}}});
   vm.runInContext(source.slice(source.indexOf('function renderHistoryPage()'), source.indexOf('function navigatePage(')), context);
   context.renderHistoryPage();

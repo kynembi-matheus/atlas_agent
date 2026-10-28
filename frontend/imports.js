@@ -97,7 +97,7 @@ $('temporary-files').addEventListener('change', async event => {
   }
 });
 window.addEventListener('pagehide', () => {
-  if (state.sessionId) fetch('/api/import-sessions/current', {method: 'DELETE',
+  if (state.sessionId) fetch(appUrl('/api/import-sessions/current'), {method: 'DELETE',
     headers: {'X-Data-Session': state.sessionId}, keepalive: true}).catch(() => {});
 });
 window.addEventListener('pageshow', event => {

@@ -1,13 +1,13 @@
 'use strict';
 const dashboardsState = {items: [], selected: null, revision: 0, updating: false, filters: {}, filterRevision: 0};
-function dashboardDetailId() { return window.location.pathname.match(/^\/dashboards\/([^/]+)$/)?.[1] || null; }
+function dashboardDetailId() { return (typeof appPath === 'function' ? appPath() : window.location.pathname).match(/^\/dashboards\/([^/]+)$/)?.[1] || null; }
 function dashboardVisible() { return Boolean(dashboardDetailId()) && !document.hidden; }
 async function loadDashboards() {
   const revision = ++dashboardsState.revision;
   $('dashboard-status').textContent = 'Carregando biblioteca…';
   try {
     const data = await (await api('/api/dashboards')).json();
-    if (revision !== dashboardsState.revision || window.location.pathname !== '/dashboards') return;
+    if (revision !== dashboardsState.revision || (typeof appPath === 'function' ? appPath() : window.location.pathname) !== '/dashboards') return;
     dashboardsState.items = data.dashboards;
     $('dashboard-count').textContent = `${data.dashboards.length} de ${data.limit} dashboards`;
     $('create-dashboard').disabled = data.dashboards.length >= data.limit;
@@ -50,10 +50,10 @@ async function renderDashboardPage() {
   dashboardsState.filters = {}; dashboardsState.filterRevision++;
   const id = dashboardDetailId();
   $('dashboard-detail-page').hidden = !id;
-  $('dashboards-page').hidden = window.location.pathname !== '/dashboards';
+  $('dashboards-page').hidden = (typeof appPath === 'function' ? appPath() : window.location.pathname) !== '/dashboards';
   if (!id) {
     dashboardsState.selected = null;
-    if (window.location.pathname === '/dashboards') return loadDashboards();
+    if ((typeof appPath === 'function' ? appPath() : window.location.pathname) === '/dashboards') return loadDashboards();
     return;
   }
   const revision = ++dashboardsState.revision;
@@ -115,7 +115,7 @@ $('create-dashboard').addEventListener('click', () => {
 });
 $('reload-dashboards').addEventListener('click', loadDashboards);
 $('refresh-dashboard').addEventListener('click', updateDashboard);
-window.addEventListener('hashchange', () => { if (window.location.pathname === '/dashboards') loadDashboards(); });
+window.addEventListener('hashchange', () => { if ((typeof appPath === 'function' ? appPath() : window.location.pathname) === '/dashboards') loadDashboards(); });
 document.addEventListener('visibilitychange', () => { if (dashboardVisible()) updateDashboard(); });
 setInterval(() => { if (dashboardVisible()) updateDashboard(); }, 60000);
 renderDashboardPage();

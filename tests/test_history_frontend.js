@@ -9,7 +9,7 @@ function harness(runs, path = '/') {
   const nodes = new Map(); const requests = []; const selected = []; const timers = new Map(); let nextTimer = 0;
   const node = () => ({children: [], append(...items) { this.children.push(...items); },
     setAttribute() {}, replaceChildren() { this.children = []; }, addEventListener(event, handler) { this[event] = handler; }});
-  const context = vm.createContext({
+  const context = vm.createContext({appUrl: path => path, appPath: () => context.window.location.pathname, 
     document: {createElement: node, createElementNS: node},
     $: id => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); },
     window: {location: {pathname: path}, history: {pushState(_, __, path) { context.window.location.pathname = path; }}},

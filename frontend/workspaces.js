@@ -85,7 +85,7 @@ async function loadSchedules() {
   $('schedules-feedback').textContent = '';
   try {
     const data = await (await api('/api/schedules')).json();
-    if (window.location.pathname !== '/agendamentos') return;
+    if ((typeof appPath === 'function' ? appPath() : window.location.pathname) !== '/agendamentos') return;
     $('schedule-list').replaceChildren();
     if (!data.schedules.length) $('schedule-list').append(el('p', 'muted', 'Nenhuma tarefa agendada.'));
     for (const item of data.schedules) {
@@ -114,7 +114,7 @@ async function loadSchedules() {
       }
       $('schedule-list').append(card);
     }
-  } catch (error) { if (window.location.pathname === '/agendamentos') $('schedules-feedback').textContent = error.message; }
+  } catch (error) { if ((typeof appPath === 'function' ? appPath() : window.location.pathname) === '/agendamentos') $('schedules-feedback').textContent = error.message; }
 }
 async function loadSubagents() {
   const revision = workspaceUi.revision, id = workspaceUi.conversationId;
@@ -161,7 +161,7 @@ $('schedule-at').addEventListener('input', updateScheduleSummary);
 $('schedule-days').addEventListener('change', updateScheduleSummary);
 let schedulesPageTimer = null;
 function renderSchedulesPage() {
-  const visible = window.location.pathname === '/agendamentos';
+  const visible = (typeof appPath === 'function' ? appPath() : window.location.pathname) === '/agendamentos';
   $('schedules-page').hidden = !visible;
   clearInterval(schedulesPageTimer);
   if (!visible) return;

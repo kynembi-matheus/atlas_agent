@@ -11,6 +11,7 @@ function setup({saved, blocked = false, api, fetch: fetcher} = {}) {
     if (!nodes.has(id)) nodes.set(id, {hidden: false, listeners: {}, attributes: {},
       addEventListener(event, callback) { this.listeners[event] = callback; },
       setAttribute(key, value) { this.attributes[key] = value; },
+      removeAttribute(key) { delete this[key]; },
       showModal() { this.open = true; },
       close() { this.open = false; this.listeners.close(); },
     });
@@ -20,10 +21,10 @@ function setup({saved, blocked = false, api, fetch: fetcher} = {}) {
   const storage = new Map(saved ? [['scd-theme', saved]] : []);
   const events = {};
   const navigation = [];
-  const context = vm.createContext({$, document: {documentElement: root},
+  const context = vm.createContext({appUrl: path => path, appPath: () => context.window.location.pathname, $, URL, document: {documentElement: root},
     localStorage: {getItem: key => { if (blocked) throw Error(); return storage.get(key); },
       setItem: (key, value) => { if (blocked) throw Error(); storage.set(key, value); }},
-    window: {addEventListener: (event, callback) => { events[event] = callback; }, location: {assign: url => navigation.push(url)}},
+    window: {addEventListener: (event, callback) => { events[event] = callback; }, location: {href: 'https://atlas.test/atlas/', origin: 'https://atlas.test', assign: url => navigation.push(url)}},
     sessionStorage: {removeItem: () => {}},
     fetch: fetcher || (async () => ({ok: true, status: 204})),
     api: api || (async () => ({json: async () => ({name: 'Usuário', identity: 'Perfil local',
@@ -178,4 +179,28 @@ test('responses arriving after closing the profile do not update it', async () =
   resolve({json: async () => ({usage: {}})});
   await settle();
   assert.equal($('profile-stats').hidden, true);
+});
+
+test('signed-in profile photo appears in both locations and falls back on error', async () => {
+  let photo = 'https://auth.example.test/public/photo.png';
+  const {$} = setup({api: async () => ({json: async () => ({
+    name: 'Ana Silva', identity: 'ana@example.test', photo_url: photo,
+    usage: {conversations: 0, requests: 0, completed: 0, artifacts: 0},
+  })})});
+  await settle();
+  for (const [image, fallback] of [['sidebar-user-photo', 'sidebar-user-initials'], ['profile-photo', 'profile-initials']]) {
+    assert.equal($(image).src, photo);
+    assert.equal($(image).hidden, true);
+    $(image).onload();
+    assert.equal($(image).hidden, false);
+    assert.equal($(fallback).hidden, true);
+    $(image).onerror();
+    assert.equal($(image).hidden, true);
+    assert.equal($(fallback).hidden, false);
+  }
+  photo = 'javascript:alert(1)';
+  $('open-profile').listeners.click();
+  await settle();
+  assert.equal($('profile-photo').src, undefined);
+  assert.equal($('profile-initials').hidden, false);
 });

@@ -190,7 +190,7 @@ automática no momento da seleção.
 ## Perfil e estatísticas
 
 `GET /api/profile` retorna `name`, `identity`, `scope`, `auth_mode` (`local`, `sso` ou
-`development`), `profile`, `role`, `function`, `department`, `unit_number`, `unit_name`
+`development`), `profile`, `role`, `function`, `department`, `unit_number`, `unit_name`, `photo_url`
 e `usage` com totais inteiros de
 `conversations`, `requests`, `completed` e `artifacts`. Usa a autenticação de `/api`.
 Os campos profissionais opcionais são nulos quando ausentes. Nome/e-mail e informações

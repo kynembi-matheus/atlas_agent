@@ -191,9 +191,13 @@ SSO_SESSION_SECONDS=28800
 
 O arquivo PEM deve conter somente a chave **pública RSA** do emissor. Alternativamente,
 `SSO_PUBLIC_KEY` aceita PEM inline com quebras de linha ou `\n` literais. A chave em arquivo
-tem prioridade. `SSO_EXPECTED_TARGET` é exatamente o `netloc` do destino (host e porta,
+tem prioridade. `PUBLIC_KEY_PATH` também é aceito como nome legado para o caminho;
+quando ambos os nomes estão definidos, `SSO_PUBLIC_KEY_PATH` tem prioridade.
+`SSO_EXPECTED_TARGET` é exatamente o `netloc` do destino (host e porta,
 quando houver), sem esquema ou caminho; não é obtido do Host enviado pelo cliente.
 Se o emissor usar overrides, ajuste `SSO_EXPECTED_ISSUER` e `SSO_EXPECTED_AUDIENCE`.
+Os nomes legados `JWT_EXPECTED_ISSUER` e `JWT_EXPECTED_AUDIENCE` também são aceitos;
+os nomes `SSO_EXPECTED_*` têm prioridade quando ambos são informados.
 Sem audience configurada, um JWT que contenha `aud` é rejeitado. Configuração SSO incompleta
 impede a inicialização. Reinicie pela raiz com `uv run app.py`.
 
@@ -270,7 +274,7 @@ chaves RSA temporárias e simulam a troca HTTP, sem IA, PostgreSQL ou ScdAuth re
 | `MAX_AGENT_STEPS` | `60` | Máximo de rodadas de IA por execução (1 a 60); a última é reservada à síntese sem ferramentas |
 | `MAX_QUERY_ROWS` | `5000` | Limite solicitado ao MCP por consulta |
 | `MAX_DATASET_ROWS` | `50000` | Máximo de linhas/trechos por anexo; também limita consultas |
-| `MAX_UPLOAD_BYTES` | `5242880` | Limite por arquivo anexado (5 MiB) |
+| `MAX_UPLOAD_BYTES` | `52428800` | Limite por arquivo anexado (50 MiB), configurável até esse máximo |
 | `MAX_TEMPORARY_UPLOAD_BYTES` | `524288000` | Limite por arquivo em Importe seus dados (500 MiB), configurável até esse máximo |
 | `MAX_TEMPORARY_EXPANDED_BYTES` | `2147483648` | Limite do pacote XLSX descompactado na importação temporária (2 GiB) |
 | `MAX_TEMPORARY_CHARACTERS` | `524288000` | Limite de caracteres extraídos na importação temporária |
@@ -325,7 +329,7 @@ Use **Anexar** para selecionar PDF, XLSX, CSV, DOCX e PPTX juntos, até 10 arqui
 
 Imagens, gráficos, objetos incorporados e notas não são interpretados. Documentos são divididos em trechos de até 4.000 caracteres; a contagem de trechos/linhas não representa registros de negócio. A origem inclui nome, formato, hash SHA-256 e avisos de extração. O original não é retido; os dados extraídos ficam no dataset. A IA recebe prévias e pode ler o restante com `inspect_dataset` paginado. Avisos acompanham os dados derivados e relatórios.
 
-Valem `MAX_UPLOAD_BYTES` (5 MiB por padrão) e `MAX_DATASET_ROWS` por arquivo; no máximo 200 colunas (198 colunas de entrada por aba XLSX, reservando duas para origem), 2 milhões de caracteres extraídos, 1.000 páginas/slides/abas, 5.000 entradas e 50 MiB descompactados por pacote Office. Arquivos acima desses limites são recusados, sem salvar um dataset parcial. A extração é local e não chama IA ou banco. `pypdf` é dependência de produção para leitura de PDFs.
+Valem `MAX_UPLOAD_BYTES` (50 MiB por padrão) e `MAX_DATASET_ROWS` por arquivo; no máximo 200 colunas (198 colunas de entrada por aba XLSX, reservando duas para origem), 2 milhões de caracteres extraídos, 1.000 páginas/slides/abas, 5.000 entradas e 50 MiB descompactados por pacote Office. Arquivos acima desses limites são recusados, sem salvar um dataset parcial. A extração é local e não chama IA ou banco. `pypdf` é dependência de produção para leitura de PDFs.
 
 `data/agent.sqlite3` contém pedidos, respostas, eventos e linhas dos datasets. `data/artifacts/` contém os arquivos gerados. Esses dados ficam em disco sem criptografia de aplicação; controle o acesso ao diretório e use as proteções da máquina conforme a sensibilidade dos dados.
 
@@ -438,6 +442,8 @@ O popup também mostra as contagens de conversas, pedidos enviados, análises
 concluídas e arquivos gerados. São totais do histórico privado do usuário atual
 mais a sessão temporária atual, sem incluir sessões temporárias de outros navegadores.
 As estatísticas são atualizadas ao abrir o popup ou clicar em **Atualizar perfil**.
+A foto fornecida no JWT aparece no perfil e na barra lateral; se estiver ausente ou
+indisponível, a interface mostra as iniciais. Fotos externas devem usar HTTPS.
 Dados temporários saem da contagem quando a sessão é encerrada.
 
 Ative **Tema escuro** em **Preferências**; desative para voltar ao claro. A escolha fica
@@ -505,3 +511,10 @@ a um deles. O fuso do navegador aparece abaixo dos campos. **Revisar plano** vol
 confirmação no chat. A tarefa só é salva em **Salvar agendamento**.
 
 **Delegar para Subagente** cria e inicia um agente quando nenhum existe. Se já houver agentes, escolha um disponível ou crie outro, até o limite de dois. Agentes ocupados mostram seu estado e não recebem uma segunda tarefa simultânea. Fechar a seleção mantém o pedido no chat.
+
+### Publicação sob um prefixo
+
+Quando o proxy remove um prefixo antes de encaminhar as requisições, configure
+`APP_ROOT_PATH=/atlas` (ou o prefixo usado). O login, a interface e suas chamadas à API
+usam esse caminho; deixe a opção vazia para publicar na raiz. O proxy deve encaminhar
+`/atlas/` para `/` na aplicação e preservar o host e o protocolo externos.

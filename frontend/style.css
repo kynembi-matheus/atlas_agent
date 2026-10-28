@@ -45,6 +45,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .sidebar-user {width:100%;text-align:left;background:transparent;border:0;border-radius:8px;display:flex;align-items:center;gap:12px;flex-shrink:0;margin-top:auto;padding:18px 4px 0;border-top:1px solid #2b3e5c}
 .user-avatar {display:grid;place-items:center;width:38px;height:38px;flex-shrink:0;border:1px solid #41607d;border-radius:50%;background:#1d3050;color:#5ee0d0}
 .user-avatar .ui-icon {width:21px;height:21px}
+.user-avatar img,.profile-avatar img {width:100%;height:100%;object-fit:cover;border-radius:inherit}
 .user-details {display:flex;flex-direction:column;gap:4px;min-width:0}
 .user-details strong {font-size:13px;font-weight:500;color:#f2f6ff;overflow-wrap:anywhere}
 .user-details span {font-size:11px;color:#a8b9d3}
@@ -88,11 +89,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .session-status::before,.conversation-status::before,.status-pill::before {content:'';display:grid;place-items:center;flex-shrink:0;height:10px;width:10px;border-radius:50%;background:currentColor}
 .status-completed {background:#eaf5ef;color:#256345}.status-running {background:#e4f5f3;color:#08717b}.status-queued {background:#fff2d9;color:#806019}.status-failed {background:#fceae4;color:#a14632}.status-cancelled {background:var(--soft);color:var(--muted)}
 .status-running::before,.status-queued::before,.status-completed::before,.status-failed::before,.status-cancelled::before {height:13px;width:13px;mask-size:contain;mask-repeat:no-repeat;mask-position:center}
-.status-running::before {mask-image:url('/static/vendor/lucide/icons/loader-circle.svg');animation:session-spin 1s linear infinite}
-.status-queued::before {mask-image:url('/static/vendor/lucide/icons/clock.svg');animation:session-pulse 1.6s ease-in-out infinite}
-.status-completed::before {mask-image:url('/static/vendor/lucide/icons/circle-check.svg')}
-.status-failed::before {mask-image:url('/static/vendor/lucide/icons/circle-alert.svg')}
-.status-cancelled::before {mask-image:url('/static/vendor/lucide/icons/circle-x.svg')}
+.status-running::before {mask-image:url('vendor/lucide/icons/loader-circle.svg');animation:session-spin 1s linear infinite}
+.status-queued::before {mask-image:url('vendor/lucide/icons/clock.svg');animation:session-pulse 1.6s ease-in-out infinite}
+.status-completed::before {mask-image:url('vendor/lucide/icons/circle-check.svg')}
+.status-failed::before {mask-image:url('vendor/lucide/icons/circle-alert.svg')}
+.status-cancelled::before {mask-image:url('vendor/lucide/icons/circle-x.svg')}
 .sidebar .status-running {background:#5ee0d016;color:#7de9da}.sidebar .status-queued {background:#f2d69b14;color:#f2d69b}.sidebar .status-completed {background:#a5e2be12;color:#a5e2be}.sidebar .status-failed {background:#ffb4a012;color:#ffb4a0}.sidebar .status-cancelled {background:#ffffff09;color:#b9c6d9}
 .sessions-meta {display:flex;align-items:center;flex-wrap:wrap;gap:4px 16px}
 .sessions-live {display:inline-flex;align-items:center;gap:7px;color:var(--muted);font-size:11px}

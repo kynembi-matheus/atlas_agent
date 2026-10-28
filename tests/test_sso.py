@@ -273,7 +273,8 @@ def test_existing_development_session_uses_current_environment_identity(settings
 def test_profile_exposes_only_allowed_professional_fields(sso_settings, private_key):
     user = {'nome': 'Ana Silva', 'perfil': 'Analista', 'cargo': 'Analista de Crédito',
             'funcao': 'Risco', 'departamento': 'Crédito', 'numero_pa': '001',
-            'nome_pa': 'Central', '2fa_secret': 'discard-me', 'unknown': 'discard-me'}
+            'nome_pa': 'Central', 'foto_url': 'https://auth.example.test/public/photo.png',
+            '2fa_secret': 'discard-me', 'unknown': 'discard-me'}
     with browser(sso_settings) as client:
         assert client.post('/login', json={'token': token(private_key, user=user)}).status_code == 303
         profile = client.get('/api/profile').json()
@@ -283,6 +284,7 @@ def test_profile_exposes_only_allowed_professional_fields(sso_settings, private_
         assert profile['unit_number'] == '001'
         assert profile['unit_name'] == 'Central'
         assert profile['profile'] == 'Analista'
+        assert profile['photo_url'] == 'https://auth.example.test/public/photo.png'
         assert profile['auth_mode'] == 'sso'
         assert 'discard-me' not in str(profile)
 
@@ -293,6 +295,7 @@ def test_old_identity_without_professional_fields_stays_compatible(sso_settings,
         profile = client.get('/api/profile').json()
         assert profile['role'] is None
         assert profile['unit_number'] is None
+        assert profile['photo_url'] is None
         assert profile['identity'] == 'user@example.test'
 
 
@@ -337,3 +340,18 @@ def test_sso_requires_configuration_and_cannot_use_api_key(sso_settings):
     sso_settings.sso_expected_target = ''
     with pytest.raises(ValueError):
         create_app(sso_settings)
+
+
+def test_login_and_frontend_respect_configured_proxy_prefix(sso_settings, private_key):
+    sso_settings.app_root_path = '/atlas'
+    with browser(sso_settings) as client:
+        response = client.post('/login', json={'token': token(private_key)})
+        assert response.status_code == 303
+        assert response.headers['location'] == '/atlas/'
+        page = client.get('/')
+        assert page.status_code == 200
+        assert '<meta name="app-root-path" content="/atlas">' in page.text
+        assert 'src="/atlas/static/app.js' in page.text
+        assert 'href="/atlas/dashboards"' in page.text
+        assert client.get('/static/app.js').status_code == 200
+        assert client.get('/api/profile').status_code == 200

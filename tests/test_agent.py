@@ -384,6 +384,28 @@ def test_oversized_upload_rejected(settings):
     with TestClient(create_app(settings, mcp=FakeMCP(), client=ScriptLLM([]))) as client:
         assert client.post('/api/datasets/upload', files={'file': ('large.csv', b'x' * 1025)}).status_code == 413
 
+
+def test_pdf_larger_than_previous_upload_limit_is_imported(settings):
+    from pypdf import PdfReader, PdfWriter
+    from reportlab.pdfgen import canvas
+
+    original = io.BytesIO()
+    document = canvas.Canvas(original)
+    document.drawString(50, 750, 'Conteúdo do relatório de teste')
+    document.save()
+    writer = PdfWriter()
+    writer.append(PdfReader(io.BytesIO(original.getvalue())))
+    writer.add_attachment('anexo.bin', b'x' * (5 * 1024 * 1024))
+    output = io.BytesIO()
+    writer.write(output)
+    content = output.getvalue()
+    assert len(content) > 5 * 1024 * 1024
+    with TestClient(create_app(settings, mcp=FakeMCP(), client=ScriptLLM([]))) as client:
+        response = client.post('/api/datasets/upload', files={'file': ('relatorio.pdf', content, 'application/pdf')})
+        assert response.status_code == 200
+        assert response.json()['source']['page_count'] == 1
+        assert 'relatório de teste' in str(response.json()['preview'])
+
 async def test_spreadsheet_headers_are_also_neutralized(settings, store):
     dataset = store.save_dataset([{'=formula': '=data', 'normal': -20}], {'kind': 'test'})
     tools = Toolbox(settings, store, FakeMCP(), new_run())

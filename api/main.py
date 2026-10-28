@@ -178,7 +178,7 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
             {'name': identity.name, 'identity': identity.email,
              'profile': identity.perfil, 'role': identity.cargo, 'function': identity.funcao,
              'department': identity.departamento, 'unit_number': identity.numero_pa,
-             'unit_name': identity.nome_pa,
+             'unit_name': identity.nome_pa, 'photo_url': identity.foto_url,
              'auth_mode': 'development' if identity.uid == 'development' else 'sso'}
             if identity else {}))
 
@@ -347,7 +347,7 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; script-src 'self'; style-src 'self'; "
-            "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"
+            "img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"
         )
         if auth_sessions or request.url.path in {'/login', '/logout'} or request.url.path.startswith("/api/"):
             response.headers["Cache-Control"] = "no-store"
@@ -512,11 +512,15 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
     @app.get("/agendamentos", include_in_schema=False)
     @app.get("/dashboards", include_in_schema=False)
     async def index():
-        return FileResponse(ROOT / "frontend/index.html")
+        html = (ROOT / 'frontend/index.html').read_text(encoding='utf-8')
+        html = html.replace('<head>', f'<head><meta name="app-root-path" content="{settings.app_root_path}">')
+        html = html.replace('href="/', f'href="{settings.app_root_path}/')
+        html = html.replace('src="/', f'src="{settings.app_root_path}/')
+        return HTMLResponse(html)
 
     @app.get('/dashboards/{dashboard_id}', include_in_schema=False)
     async def dashboard_page(dashboard_id: UUID):
-        return FileResponse(ROOT / 'frontend/index.html')
+        return await index()
 
     return app
 

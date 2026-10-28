@@ -43,7 +43,9 @@ def postgres_dataset(store):
         'max_rows': 10, 'possibly_truncated': False})
 
 
-def test_library_refresh_ownership_and_delete(settings, store, client_owner_scope):
+@pytest.mark.parametrize('root_path', ['', '/atlas'])
+def test_library_refresh_ownership_and_delete(settings, store, client_owner_scope, root_path):
+    settings.app_root_path = root_path
     mcp = MCP()
     app = create_app(settings, mcp=mcp, client=object())
     with TestClient(app) as client:
@@ -68,6 +70,10 @@ def test_library_refresh_ownership_and_delete(settings, store, client_owner_scop
         html = client.get(url)
         assert html.status_code == 200
         assert html.headers['cache-control'] == 'no-store'
+        assert f'href="{root_path}/static/dashboard.css"' in html.text
+        assert f'src="{root_path}/static/dashboard-runtime.js"' in html.text
+        assert client.get('/static/dashboard.css').status_code == 200
+        assert client.get('/static/dashboard-runtime.js').status_code == 200
         assert '<script>' not in html.text
         assert '&lt;script&gt;' in html.text
         assert '10,00' in html.text

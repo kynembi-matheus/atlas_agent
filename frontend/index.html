@@ -13,7 +13,7 @@
   <script src="/static/app.js?v=25" defer></script>
   <script src="/static/workspaces.js?v=11" defer></script>
   <script src="/static/chat-drag.js?v=1" defer></script>
-  <script src="/static/profile.js?v=3" defer></script>
+  <script src="/static/profile.js?v=4" defer></script>
   <script src="/static/catalog.js?v=6" defer></script>
   <script src="/static/skills.js?v=3" defer></script>
   <script src="/static/imports.js?v=3" defer></script>
@@ -34,7 +34,7 @@
     <a id="open-dashboards" class="history-more dashboard-nav" href="/dashboards" aria-label="Dashboards" title="Dashboards"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-dashboard"/></svg><span class="sidebar-link-label">Dashboards</span></a>
     <a id="open-schedules" class="history-more dashboard-nav" href="/agendamentos" aria-label="Agendamentos" title="Agendamentos"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-clock"/></svg><span class="sidebar-link-label">Agendamentos</span></a>
     <button id="open-profile" class="sidebar-user" type="button" aria-label="Abrir perfil e uso" aria-haspopup="dialog" aria-controls="profile-dialog">
-      <span id="sidebar-user-initials" class="user-avatar" aria-hidden="true">U</span>
+      <span class="user-avatar" aria-hidden="true"><span id="sidebar-user-initials">U</span><img id="sidebar-user-photo" alt="" hidden></span>
       <span class="user-details"><strong id="sidebar-user-name">Usuário</strong><span id="sidebar-user-identity">Departamento não informado</span></span>
       <span class="user-more" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-more"/></svg></span>
     </button>
@@ -181,7 +181,7 @@
   <header class="preview-heading profile-heading"><div><h2 id="profile-title">Meu perfil</h2><p class="muted">Sua conta e preferências</p></div><button id="close-profile" class="icon-button" type="button" aria-label="Fechar perfil" autofocus><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-close"/></svg></button></header>
   <div id="profile-body" class="profile-body" aria-busy="true">
   <section class="profile-identity" aria-label="Identidade do usuário">
-    <span id="profile-initials" class="profile-avatar" aria-hidden="true">U</span>
+    <span class="profile-avatar" aria-hidden="true"><span id="profile-initials">U</span><img id="profile-photo" alt="" hidden></span>
     <div class="profile-summary"><div class="profile-name-row"><h3 id="profile-name">Usuário</h3><span id="profile-access" class="profile-access" hidden></span></div><p id="profile-identity" class="muted">Carregando perfil…</p><span id="profile-session-mode" class="profile-session-mode">Carregando sessão…</span></div>
   </section>
   <section class="profile-professional" aria-labelledby="professional-title">

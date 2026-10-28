@@ -166,7 +166,7 @@ async def refresh(toolbox, item, selections=None):
 
     datasets = {key: await resolve(source) for key, source in item['sources'].items()}
     spec = Dashboard.model_validate({k: item[k] for k in ('title', 'description', 'widgets', 'filters') if k in item})
-    return render_html(spec, datasets, selections)
+    return render_html(spec, datasets, selections, root_path=toolbox.settings.app_root_path)
 
 
 def validate_filter(field, dataset):
@@ -281,7 +281,7 @@ def chart_html(widget, rows):
     return body + '</div>'
 
 
-def render_html(spec, datasets, selections=None):
+def render_html(spec, datasets, selections=None, *, root_path=''):
     from tools.data_tools import coverage
     selections = selections or {}
     filtered = filtered_datasets(spec, datasets, selections)
@@ -344,8 +344,8 @@ def render_html(spec, datasets, selections=None):
         sections.append(f'<section class="widget widget-{widget.kind}" data-widget="{index}"><div class="widget-heading"><h2>{escape(widget.title)}</h2>{badge}</div>{body}{metadata}</section>')
     ordered = sorted(zip(spec.widgets, sections), key=lambda pair: {'metric': 0, 'table': 2}.get(pair[0].kind, 1))
     return ('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            f'<title>{escape(spec.title)}</title><link rel="stylesheet" href="/static/dashboard.css">'
-            '<script src="/static/dashboard-runtime.js" defer></script></head><body>'
+            f'<title>{escape(spec.title)}</title><link rel="stylesheet" href="{escape(root_path, quote=True)}/static/dashboard.css">'
+            f'<script src="{escape(root_path, quote=True)}/static/dashboard-runtime.js" defer></script></head><body>'
             f'<header><div><span class="eyebrow">DASHBOARD</span><h1>{escape(spec.title)}</h1>'
             + (f'<p class="description">{escape(spec.description)}</p>' if spec.description else '')
             + f'</div><small class="live">● Atualizado <time datetime="{escape(now())}">{escape(now()[11:19])} UTC</time></small></header>'
