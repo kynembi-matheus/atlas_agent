@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -20,6 +21,11 @@ class Settings(BaseSettings):
     mcp_verify_ssl: bool = True
     mcp_ca_bundle: Path | None = None
     mcp_api_key: SecretStr = SecretStr("")
+    internet_enabled: bool = True
+    internet_search_provider: Literal['openai', 'duckduckgo'] = 'openai'
+    internet_search_model: str = ''
+    internet_timeout_seconds: int = Field(default=25, ge=1, le=60)
+    internet_max_bytes: int = Field(default=1048576, ge=16384, le=2097152)
     app_api_key: SecretStr = SecretStr("")
     sso_enabled: bool = False
     sso_public_key: str = ""

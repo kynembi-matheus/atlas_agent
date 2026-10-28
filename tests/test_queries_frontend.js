@@ -19,7 +19,8 @@ class Node {
 function harness(apiHandler) {
   const nodes = new Map();
   const $ = id => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); };
-  const context = vm.createContext({$, api: apiHandler, el: (tag, cls, text) => Object.assign(new Node(), {tag, textContent: text}), notice() {}, renderAttachments() {}, document: {body: new Node()}, window: {confirm: () => true}, state: {sessionId: 'session', files: []}});
+  const context = vm.createContext({$, api: apiHandler, el: (tag, cls, text) => Object.assign(new Node(), {tag, textContent: text}), historyIcon: name => Object.assign(new Node(), {tag: 'svg', name}), notice() {}, renderAttachments() {}, document: {body: new Node()}, window: {confirm: () => true}, state: {sessionId: 'session', files: []}});
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../frontend/chat-drag.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../frontend/queries.js'), 'utf8'), context);
   return {context, $};
 }
@@ -75,7 +76,7 @@ test('save sends the edited definition and keeps it selected', async () => {
   assert.equal(calls[0][0], '/api/queries/uuid');
   assert.equal(calls[0][1].method, 'PUT');
   assert.equal(JSON.parse(calls[0][1].body).name, 'Atualizada');
-  assert.match($('query-attachments').children[0].textContent, /Atualizada/);
+  assert.match($('query-attachments').children[0].children[1].textContent, /Atualizada/);
   assert.equal($('save-query').disabled, false);
   assert.equal($('query-dialog').open, false);
 });

@@ -25,6 +25,7 @@ function harness(api) {
     el: (tag, cls, text) => { const node = new Node(); node.tag = tag; node.textContent = text; return node; },
     FormData: class {append(_, file) { this.file = file; }}, document: {body: new Node()},
     window: {addEventListener: (name, fn) => { windowEvents[name] = fn; }}});
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../frontend/chat-drag.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../frontend/imports.js'), 'utf8'), context);
   return {$, context, state, notices, windowEvents};
 }
@@ -97,7 +98,7 @@ test('New conversation replaces the session before resetting the chat', async ()
     ensureDataSession: async () => order.push('ensure'), rotateDataSession: async () => order.push('rotate'),
     stopPolling: () => order.push('stop'), renderAttachments() {}, notice() {}, refreshHistory() {}, navigatePage() {}});
   const source = fs.readFileSync(path.join(__dirname, '../frontend/app.js'), 'utf8');
-  vm.runInContext(source.slice(source.indexOf("$('new-run').addEventListener"), source.indexOf("$('refresh-history').addEventListener")), context);
+  vm.runInContext(source.slice(source.indexOf("$('new-run').addEventListener"), source.indexOf("$('more-history').addEventListener")), context);
   await $('new-run').handlers.click();
   assert.deepEqual(order, ['ensure', 'rotate', 'stop']);
   assert.equal($('import-results').children.length, 0);

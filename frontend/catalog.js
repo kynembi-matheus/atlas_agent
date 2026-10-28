@@ -54,7 +54,12 @@ async function showTablePreview(table) {
 }
 function renderCatalogTables() {
   $('preview-tables').replaceChildren();
-  for (const table of catalog.tables) {
+  const normalize = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
+  const query = normalize(($('catalog-search').value || '').trim());
+  const tables = catalog.tables.filter(table => normalize(`${table.schema}.${table.table}`).includes(query));
+  $('catalog-search-status').textContent = query ? `${tables.length} de ${catalog.tables.length} tabela(s)` : '';
+  if (query && !tables.length) $('preview-tables').append(el('p', 'muted', 'Nenhuma tabela encontrada. Tente outro nome.'));
+  for (const table of tables) {
     const row = el('div', 'catalog-table'); row.draggable = true;
     row.title = 'Arraste esta tabela para o campo do chat';
     row.addEventListener('dragstart', event => {
@@ -127,6 +132,7 @@ $('close-table-preview').addEventListener('click', clearTablePreview);
 $('table-preview-dialog').addEventListener('cancel', event => { event.preventDefault(); clearTablePreview(); });
 $('data-preview').addEventListener('keydown', event => { if (event.key === 'Escape') setPreviewOpen(false); });
 $('preview-database').addEventListener('change', loadCatalogTables);
+$('catalog-search').addEventListener('input', renderCatalogTables);
 $('schema-form').addEventListener('submit', event => { event.preventDefault(); loadCatalogTables(); });
 $('preview-schema').addEventListener('input', () => {
   catalog.revision++; clearTablePreview(); catalog.tables = []; renderCatalogTables();

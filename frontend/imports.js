@@ -14,6 +14,9 @@ function setImportsOpen(open) {
 function showImportedDataset(data) {
   const card = el('article', 'skill-card');
   const label = `${data.source.filename} · ${data.source.sheet}`;
+  const sessionId = state.sessionId;
+  registerChatDrag(card, 'import', data.dataset_id, label, () => attachImportedDataset(data),
+    () => state.sessionId === sessionId);
   card.append(el('h3', '', label), el('p', 'muted', `${data.row_count} linha(s) · uso temporário nesta sessão`));
   const types = el('ul', 'import-types');
   const labels = {string: 'Texto', integer: 'Inteiro', decimal: 'Decimal', boolean: 'Sim/Não', date: 'Data'};

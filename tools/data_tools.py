@@ -16,11 +16,23 @@ from sqlglot import exp
 from core.config import ROOT, Settings
 from core.models import AgentError, Run
 from core.skill_catalog import available_skills
+from core.workspace_models import (
+    CreateSubagent,
+    DelegateBatch,
+    DelegateTask,
+    ListSubagents,
+    ProposeSchedule,
+    ScheduleTask,
+    SubagentId,
+)
+from integrations.internet import Internet
 from integrations.pg_mcp import PgMCP
+from integrations.web_search import search_web
 from repositories.local_store import Store, encode, now
 from tools.dashboards import Dashboard, create_dashboard
 from tools.excel_reports import ExcelReport, build_excel
 from tools.forecasting import ForecastRequest, estimate_forecast
+from tools.internet import ReadWebPage, SearchWeb
 from tools.patterns import PatternRequest, investigate_patterns
 from tools.pdf_reports import PDFReport, build_pdf
 from tools.report_sources import report_source, report_warning
@@ -36,6 +48,12 @@ class Arguments(BaseModel):
 class Plan(Arguments):
     """Publique um plano curto de ações verificáveis antes de iniciar a análise."""
     steps: list[str] = Field(min_length=1, max_length=8)
+
+
+class ConversationTitle(Arguments):
+    """Defina um título curto da sessão a partir do assunto da conversa, em texto simples."""
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=True)
+    title: str = Field(min_length=3, max_length=80)
 
 
 class SearchDocs(Arguments):
@@ -197,6 +215,12 @@ class Report(Arguments):
 
 
 SCHEMAS = {
+    'propose_schedule': ProposeSchedule,
+    'create_subagent': CreateSubagent, 'list_subagents': ListSubagents,
+    'delegate_to_subagent': DelegateTask, 'cancel_subagent': SubagentId, 'schedule_task': ScheduleTask,
+    'delegate_to_subagents': DelegateBatch,
+    "set_conversation_title": ConversationTitle,
+    "search_web": SearchWeb, "read_web_page": ReadWebPage,
     "create_dashboard": Dashboard,
     "list_favorite_queries": ListFavoriteQueries, "run_favorite_query": RunFavoriteQuery,
     "update_plan": Plan, "search_docs": SearchDocs, "read_doc": ReadDoc,
@@ -210,10 +234,11 @@ SCHEMAS = {
 }
 
 
-def definitions() -> list[dict]:
+def definitions(*, internet_enabled: bool = True) -> list[dict]:
     return [{"type": "function", "name": name, "description": schema.__doc__ or name,
              "parameters": schema.model_json_schema(), "strict": False}
-            for name, schema in SCHEMAS.items()]
+            for name, schema in SCHEMAS.items()
+            if internet_enabled or name not in {"search_web", "read_web_page"}]
 
 
 def validate_sql(sql: str) -> str:
@@ -280,11 +305,61 @@ def safe_spreadsheet(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 class Toolbox:
+    def workspace(self):
+        if self.is_subagent or self.workspace_control is None:
+            raise AgentError('Esta capacidade é controlada exclusivamente pelo agente principal.')
+        return self.workspace_control
+
+    async def create_subagent(self, args):
+        return self.workspace().create(args)
+
+    async def list_subagents(self, args):
+        return self.workspace().list()
+
+    async def delegate_to_subagent(self, args):
+        return await self.workspace().delegate(args)
+
+    async def delegate_to_subagents(self, args):
+        return await self.workspace().delegate_many(args)
+
+    async def cancel_subagent(self, args):
+        return await self.workspace().cancel(args)
+
+    async def schedule_task(self, args):
+        return self.workspace().schedule(args)
+
+    async def propose_schedule(self, args):
+        return self.workspace().propose_schedule(args)
+    async def search_web(self, args: SearchWeb):
+        if not self.settings.internet_enabled:
+            raise AgentError('Plugin de internet desativado nesta instalação.')
+        if self.web_search_error:
+            raise AgentError(self.web_search_error)
+        try:
+            if self.settings.internet_search_provider == 'openai':
+                return await search_web(self.search_client, self.settings, args.query, args.max_results)
+            return await Internet(self.settings).search(args.query, args.max_results)
+        except AgentError:
+            self.web_search_error = (
+                "Pesquisa web indisponível nesta execução. Não repita a busca. "
+                "Informe a limitação ou leia uma URL pública conhecida se necessário."
+            )
+            raise
+
+    async def read_web_page(self, args: ReadWebPage):
+        return await Internet(self.settings).read(args.url, args.offset)
+
     async def create_dashboard(self, args: Dashboard):
         return await create_dashboard(self, args)
 
-    def __init__(self, settings: Settings, store: Store, mcp: PgMCP, run: Run | None):
+    def __init__(self, settings: Settings, store: Store, mcp: PgMCP, run: Run | None,
+                 *, web_enabled: bool | None = None, search_client=None, workspace_control=None,
+                 is_subagent=False):
         self.settings, self.store, self.mcp, self.run = settings, store, mcp, run
+        self.web_enabled = settings.internet_enabled and web_enabled is not False
+        self.web_search_error: str | None = None
+        self.search_client = search_client
+        self.workspace_control, self.is_subagent = workspace_control, is_subagent
         self.databases: set[str] | None = None
 
     @property
@@ -307,6 +382,8 @@ class Toolbox:
         })
 
     async def call(self, name: str, arguments: dict) -> Any:
+        if name in {"search_web", "read_web_page"} and not self.web_enabled:
+            raise AgentError("Pesquisa web desativada para este pedido.")
         if name not in SCHEMAS:
             raise AgentError("Ferramenta desconhecida.")
         try:
@@ -351,6 +428,15 @@ class Toolbox:
 
     async def update_plan(self, args: Plan):
         return {"steps": args.steps}
+
+    async def set_conversation_title(self, args: ConversationTitle):
+        if self.is_subagent:
+            raise AgentError('Somente o principal define o título da sessão.')
+        if self.run is None:
+            raise AgentError('Inicie uma conversa para definir o título da sessão.')
+        self.run.title = args.title
+        self.store.save_run(self.run)
+        return {'title': self.run.title}
 
     async def list_imported_datasets(self, args: ListImportedDatasets):
         return {'datasets': [{'dataset_id': item['id'], 'row_count': item['row_count'],

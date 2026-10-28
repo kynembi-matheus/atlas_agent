@@ -1,6 +1,180 @@
 # Arquitetura
 
-O Histórico lateral mostra as cinco conversas mais recentes. “Ver mais” navega para `/historico`, com todas as conversas disponíveis, ordenadas pela criação do último pedido. A navegação interna usa History API, preservando a sessão temporária. Cada conversa aparece uma vez e abre sua execução mais recente. `GET /api/conversations` não aplica o limite legado de 100 execuções; `limit=5` limita conversas após o agrupamento. Dados temporários aparecem somente na sessão correspondente.
+## Agendamento e subagentes
+
+`core/workspace_models.py` define schemas Pydantic para criar perfis, delegar tarefas
+individuais/em lote, cancelar auxiliares e agendar uma execução única. As capacidades
+do agente são registradas em `SCHEMAS` e executadas por `SubagentControl`, sem shell
+ou código arbitrário. `api/workspaces.py` fornece as rotas autenticadas dos diálogos.
+Uma reserva em `workspaces` permite configurar uma sessão antes do primeiro pedido.
+
+Os atalhos ficam no composer, ao lado de Anexar. `repositories/task_context.py` captura
+contexto a partir de um run acessível, nunca de um snapshot fornecido pelo navegador.
+`Run.execution_options` registra fontes selecionadas, favoritas, web e saída;
+`Run.context_snapshot` guarda pedido, trechos delimitados, referências e critérios da
+origem. A captura não inclui turnos posteriores à origem e comunica recortes/ausências.
+O contexto é entregue como dados não confiáveis ao agente de destino, com orientação
+para atualizar consultas e distinguir amostras de totais. Snapshots de agendamento
+são persistidos na confirmação; referências temporárias continuam recusadas.
+
+`propose_schedule` retorna uma proposta estruturada nos eventos, sem inserir agendamento.
+O frontend renderiza a sugestão com DOM/textContent e abre revisão vinculada ao run de
+origem. `schedule_task` continua disponível para autorização explícita do usuário.
+
+Perfis têm `created_by=principal|user`, definido no servidor. A ferramenta do principal
+cria apenas auxiliares controlados; o formulário cria perfis do usuário com um
+`independent_conversation_id`. A API executa estes últimos em conversa própria e
+reaplica seu perfil em novas mensagens. `Run.agent_profile_id` e
+`origin_conversation_id` preservam a associação. O principal não pode delegar a esses
+perfis. O limite atômico de dois slots inclui os dois tipos. Perfis legados sem origem
+mantêm comportamento de auxiliares; não há inferência retroativa de autoria.
+
+`repositories/workspaces.py` armazena metadados privados em `workspaces`, `subagents` e
+`scheduled_tasks`. `subagent_slots` reserva apenas IDs e vagas, sem textos temporários.
+A criação de perfis usa `BEGIN IMMEDIATE` e slots únicos por usuário/
+conversa; no máximo dois perfis, mesmo sob concorrência. O escopo vem de `history_owner`,
+nunca do payload HTTP. `TemporaryStore.workspace_subagents` guarda definições/resultados
+temporários e sobrepõe perfis persistentes sem copiar conteúdos importados ao SQLite.
+As vagas temporárias compartilham o limite dos perfis persistentes e são liberadas ao
+encerrar a importação; reservas órfãs são removidas no startup após a limpeza temporária.
+
+`agents/subagents.py` controla tasks assíncronas na execução do principal. Os auxiliares
+compartilham `StepBudget`, com reserva da síntese final; cada auxiliar tem até 12 rodadas.
+Eles não recebem ferramentas de controle e a Toolbox rejeita chamadas forjadas. A
+delegação em lote usa gather e mantém o orçamento compartilhado. O cancelamento do
+principal se propaga; o cancelamento individual retorna esse estado ao principal, que
+pode continuar. Arquivos dos auxiliares são incorporados à lista de arquivos do principal.
+`Run.parent_run_id` distingue execuções auxiliares; elas não aparecem como novas sessões
+nem entram no contexto histórico ou na contagem de pedidos do usuário.
+Conversas próprias de agentes do usuário não têm parent_run_id e têm orçamento
+independente. Em Sessões, `repositories/session_views.py` agrupa suas conversas e os
+auxiliares sob a sessão de origem, via `/api/workspace-sessions`. O agrupamento é uma
+projeção de apresentação e não altera os IDs, a persistência ou os orçamentos. O frontend
+exibe o título da sessão com o nome do subagente e as cores teal/violet em listas, popup
+e cabeçalho. A captura de contexto não mistura seus históricos; recebe
+somente a referência explicitamente selecionada. Cancelamento do principal só se propaga
+aos auxiliares controlados, não às conversas pessoais.
+
+`agents/scheduler.py` inicia no lifespan, consulta vencimentos em UTC a cada cinco
+segundos e despacha pela fila do RunManager. A reivindicação de tarefas é atômica e o
+run_id é reservado antes do disparo. Estados dispatching/running são reconciliados no
+startup com a execução existente, após Store.recover, evitando reenvio automático de
+execuções interrompidas. O worker restabelece os ContextVars de proprietário e perfil
+de dashboard antes de criar o run, sem depender de cookie/JWT ainda ativo no navegador.
+Não mantém credenciais do usuário; utiliza o cliente e as permissões de serviço já existentes.
+Somente fontes persistentes são permitidas em agendamentos. A fila e as importações
+continuam locais ao processo: a implantação suportada permanece de um único worker.
+
+`frontend/workspaces.js` implementa os dois diálogos e atualiza estados a cada quatro
+segundos enquanto abertos. Os formulários só submetem após ação explícita; o texto é
+renderizado por DOM/textContent e resultados auxiliares usam o Markdown seguro existente.
+
+## Sessões e ícones da interface
+
+`frontend/chat-drag.js` compartilha drag-and-drop entre os cards de importações, skills
+e favoritas, usando as mesmas funções de inclusão dos botões. O MIME específico carrega
+somente uma chave/token para um callback registrado na página, sem SQL, linhas ou código.
+Referências desconhecidas/antigas são recusadas; importações validam a sessão atual.
+O comportamento de tabelas em `catalog.js` permanece compatível e o editor aceita
+ambos os tipos. Nenhum drop executa consulta ou envia mensagem. Botões continuam
+disponíveis para teclado e telas sem arraste.
+
+O handler de teclado usa `setRangeText` para Alt+Enter e dispara `input` após inserir
+a quebra. Isso atualiza o autocomplete e evita depender do Enter modificado nativo.
+
+`Run.title` é um metadado opcional (até 80 caracteres) no JSON já persistido, compatível
+com registros antigos. `set_conversation_title` tem schema Pydantic e registro explícito
+na Toolbox, atualiza somente a execução atual e respeita o proprietário do armazenamento.
+O prompt pede inferência do assunto sem dados sensíveis, junto das outras ferramentas.
+`RunManager.submit` herda o título da última execução acessível daquela conversa.
+Cabeçalho, sidebar e listagem renderizam o título por textContent; sem título, o cabeçalho
+é **Nova Conversa**. Alterações entram na assinatura de atualização da lista. Não há
+inferência local por recorte do pedido nem chamada extra de IA fora do orçamento do agente.
+
+O rótulo de navegação é **Sessões**, com rota `/sessoes` e alias legado `/historico`.
+IDs DOM e endpoints de conversas permanecem compatíveis. Os estados reais do run
+determinam as classes das badges na barra lateral, na listagem e no chat. Animações
+CSS só indicam atividade, sem inferir percentual de progresso. Movimento reduzido
+desativa animações inclusive em pseudoelementos. O status do chat anuncia mudanças
+de texto via `aria-live`, evitando repetir a mesma mensagem em cada polling.
+
+`scheduleSessionsRefresh` mantém um único timer de quatro segundos enquanto há
+sessões ativas. Abas ocultas não fazem requisições automáticas. Uma assinatura de
+IDs, textos, datas e estados evita reconstruir os cards quando os dados não mudaram.
+A renderização continua por DOM/textContent e usa o histórico privado retornado pela API.
+
+A iconografia usa [Lucide](https://lucide.dev/guide/installation), versão fixada 0.468.0,
+com 27 SVGs oficiais reunidos em `frontend/vendor/lucide/sprite.svg`. O helper
+`historyIcon` atende também aos ícones dinâmicos de anexos, consultas e relatórios.
+Indicadores de estado usam máscaras dos SVGs originais. Arquivos locais respeitam
+a CSP existente; não executam scripts, não usam CDN nem exigem build Node.
+`manifest.json` e `LICENSE` preservam proveniência, versão, hashes e atribuições.
+
+## Histórico privado por usuário
+
+`core/history_identity.py` mantém `history_owner` em ContextVar. O middleware deriva um
+SHA-256 do emissor e e-mail autenticado normalizado (claim validada pelo SSO), nunca de
+campos do pedido. No modo sem login, deriva do cookie opaco de perfil do navegador.
+Contextos são restaurados ao fim da requisição e herdados pelas tasks do RunManager.
+
+O repositório filtra runs, conversas, datasets, artefatos e estatísticas antes de retornar
+dados ou montar o contexto da IA. O proprietário é armazenado em colunas `owner_id`
+indexadas, adicionadas sem reescrever payloads ou atribuir registros legados. Regravar
+um run preserva seu dono. `recover` opera no escopo interno sem usuário, preservando a
+propriedade. Esse escopo interno não é exposto por parâmetros HTTP.
+
+`ImportSession.owner_id` vincula sessões temporárias à mesma identidade; leitura, rotação
+e remoção verificam o proprietário. GET/cancelamento/continuação de histórico alheio
+retornam 404; cabeçalho de sessão de outro dono retorna 410. Favoritas e o catálogo de
+banco mantêm o compartilhamento existente. Dashboards mantêm o perfil de navegador;
+seu refresh passa pelo armazenamento privado para obter datasets.
+
+## Plugin de internet pública
+
+`tools/internet.py` define os schemas Pydantic `SearchWeb` e `ReadWebPage`, registrados
+explicitamente em `SCHEMAS` e executados pela `Toolbox` como `search_web` e `read_web_page`.
+`definitions(internet_enabled=...)` controla a exposição ao modelo; a integração também
+aplica o bloqueio quando desabilitada. O launcher continua sendo `app.py`.
+
+`RunRequest.web_search_enabled` é opt-in (padrão false). O botão **Pesquisar na web**, com `aria-pressed`,
+fica no canto inferior esquerdo do composer e envia essa escolha em cada POST `/api/runs`.
+A disponibilidade efetiva combina a escolha do pedido com `Settings.internet_enabled`;
+o catálogo e `Toolbox.call` aplicam a mesma decisão. `/api/status` expõe `internet_enabled`
+para desabilitar o controle quando indisponível na instalação. Buscas com erro não são
+repetidas na mesma execução. Mais de oito chamadas numa etapa não encerram o run:
+as oito primeiras são executadas; as demais recebem `function_call_output` com
+`executed=false`, permitindo reavaliação na próxima etapa dentro do orçamento existente.
+
+`integrations/internet.py` implementa HTTP assíncrono com httpx, TLS independente do MCP,
+timeout total, corpo limitado e redirecionamentos manuais. Resolve DNS e rejeita qualquer
+IP não público; a requisição conecta ao IP validado com Host e `sni_hostname` originais
+para impedir nova resolução entre validação e conexão. Esse mecanismo segue a
+[extensão SNI do HTTPX](https://www.python-httpx.org/advanced/extensions/#sni_hostname).
+Cookies são descartados entre requisições e proxies de ambiente não são usados.
+HTMLParser extrai texto sem scripts/estilos e interpreta os links da alternativa DuckDuckGo HTML.
+O padrão `INTERNET_SEARCH_PROVIDER=openai` usa `integrations/web_search.py` com o cliente
+existente: força `web_search`, `store=False`, consulta isolada e fontes/citações estruturadas.
+Recusa respostas sem busca concluída ou URLs. O modelo pode ser definido em
+`INTERNET_SEARCH_MODEL` (vazio reutiliza `OPENAI_MODEL`). Uma falha remove `search_web` do
+catálogo pelo restante da execução; não há fallback automático. Contrato conforme a
+[documentação oficial OpenAI](https://developers.openai.com/api/docs/guides/tools-web-search).
+
+O resultado JSON preserva URL final, data de consulta, título, recortes e limites; a
+pesquisa preserva também provedor, termos e URL da busca. Os eventos existentes armazenam
+essa evidência, sem criar datasets de negócio automaticamente. O prompt orienta confirmação
+e citação das fontes e impede tratar conteúdo remoto como instruções. A proibição de enviar
+dados internos em consultas é uma orientação ao modelo, sem classificação DLP automática.
+Não há execução de JavaScript, navegação autenticada ou leitura de formatos binários.
+Os testes em `tests/test_internet.py` simulam DNS/HTTP e verificam registro, limites,
+paginação, erro sanitizado, parsing e bloqueios de destinos e redirecionamentos.
+
+A barra lateral mostra as duas sessões de origem mais recentes, com todos os seus
+subagentes, usando `/api/workspace-sessions?limit=2`. “Ver todas as sessões” fica no
+cabeçalho de Sessões, no lugar do ícone de atualização, e navega para `/sessoes`.
+A biblioteca completa mantém busca, filtros e paginação. A navegação interna usa
+History API, preservando a sessão temporária. Cada conversa abre sua execução mais
+recente. `GET /api/conversations` mantém seu contrato sem o limite legado de 100
+execuções. Dados temporários aparecem somente na sessão correspondente.
 
 O painel “Escolher seus dados” consulta `/api/catalog/*` diretamente, sem consumir IA ou criar conversas. Cada chamada redescobre databases e aplica `ALLOWED_DATABASES`. O seletor lista somente databases em que o usuario MCP possui permissao `USAGE` no schema `public`, verificada por `pg_catalog.has_schema_privilege`; databases indisponiveis ou sem permissao sao omitidos. Listagem de tabelas e previas tambem verificam esse acesso. A ferramenta declarativa `preview_table`, com schema Pydantic e registro explícito, confirma a tabela pelo catálogo, delimita identificadores e executa somente SELECT com LIMIT de até 10 linhas (respeitando limites menores configurados). O dataset preserva database, schema, tabela, SQL, horário e `sample_only=true`; a quantidade retornada não é a contagem total da tabela. Chamadas do catálogo têm timeout de 35 segundos. Arrastar ou adicionar ao chat insere a referência completa da tabela no pedido, sem enviar automaticamente nem anexar a amostra como se fosse a base completa.
 
@@ -158,7 +332,7 @@ Não adicione `eval`, `exec`, shell, SQL de escrita ou acesso livre ao sistema d
 - Junções e análises volumosas devem ocorrer no PostgreSQL. Transformações locais atendem datasets limitados; não há execução livre de código.
 - HTML escapa o conteúdo recebido. CSV e Excel neutralizam células textuais com prefixos de fórmula. Isso pode acrescentar um apóstrofo em textos que começam por `=`, `+`, `-` ou `@`.
 - HTML inclui no máximo 100 linhas por tabela e 20 barras no gráfico. Use o Excel/CSV para as linhas completas do dataset. O gráfico mostra a magnitude; o sinal aparece no rótulo.
-- Há autenticação individual opcional por SSO ScdAuth. Histórico, consultas, datasets e importações continuam compartilhados; não há isolamento completo entre usuários, agendamento ou RAG vetorial.
+- Há autenticação individual opcional por SSO ScdAuth. Histórico, datasets, arquivos e importações são privados por usuário. Favoritas permanecem compartilhadas; agendamentos são privados e executados pelo processo da aplicação. Não há RAG vetorial.
 
 ## Referências de implementação
 
@@ -221,8 +395,8 @@ de sessão são atômicos. O cookie opaco é HttpOnly/Secure/SameSite=Lax; logou
 no servidor. A duração local é configurável e independente do JWT de entrada.
 O middleware resolve a identidade em `request.state`, protege API e páginas e impede
 cache. `/api/profile` usa nome/e-mail autenticados. A biblioteca de dashboards mantém
-seu proprietário opaco de navegador; dados e estatísticas existentes continuam
-compartilhados. A autenticação SSO não adiciona isolamento de dados entre contas.
+seu proprietário opaco de navegador. Histórico, datasets, arquivos e estatísticas são
+filtrados pelo proprietário autenticado, inclusive nas tarefas assíncronas.
 Não há consulta ao banco real ou IA no login. Com SSO desligado o contrato anterior
 de API key e perfil local permanece. GET de desenvolvimento é um bypass explícito
 controlado pela combinação de `ENVIRONMENT=development` e `--development` no launcher.
@@ -235,18 +409,18 @@ Uma identidade com uid `development` não é aceita quando o bypass está desabi
 A área do usuário abre um `dialog` nativo em `frontend/index.html`. `frontend/profile.js`
 consulta `/api/profile` ao abrir ou atualizar, apresenta estados de carregamento/erro e
 invalida respostas após fechar o popup. O perfil informa explicitamente o escopo
-compartilhado da instalação; com SSO ativo, nome/e-mail vêm da identidade autenticada.
+privado do histórico e compartilhado das favoritas; com SSO ativo, nome/e-mail vêm da identidade autenticada.
 O mesmo endpoint é consultado ao iniciar a página para preencher nome/departamento na barra
 lateral, sem exigir a abertura do popup. As atualizações sincronizam ambos os locais;
 respostas antigas são descartadas. No bypass, a identidade das sessões existentes é
 resolvida a partir dos valores `ENVIRONMENT_*` carregados no processo atual; mudanças
 no arquivo de ambiente exigem reiniciar a aplicação e atualizar a página.
-`Store.usage_statistics` agrega todos os pedidos e arquivos no SQLite; `TemporaryStore`
+`Store.usage_statistics` agrega os pedidos e arquivos do usuário no SQLite; `TemporaryStore`
 adiciona somente os metadados da sessão atual, agrupando conversas por ID distinto.
 Os modelos Pydantic `LocalProfile` e `UsageStatistics` definem o contrato de resposta.
 `LocalProfile` expõe campos profissionais permitidos e `auth_mode`, sem repassar o
 objeto bruto de sessão. O painel usa iniciais, badge do perfil de acesso, origem da
-sessão, cargo/função/departamento/unidade e totais compartilhados em seções distintas.
+sessão, cargo/função/departamento/unidade e totais privados em seções distintas.
 Campos ausentes mostram “Não informado”; os valores entram por `textContent`.
 O dialog tem cabeçalho e rodapé fixos, conteúdo com rolagem e colunas adaptadas ao celular.
 `Atualizar perfil` relê a sessão atual, sem consultar o emissor; alterações cadastrais
@@ -294,3 +468,8 @@ Uma fonte compartilhada por widgets é resolvida uma vez por atualização. Dado
 dependem do dataset ainda existir na sessão; projeções sem receita reproduzível são recusadas.
 Avisos de amostra e origem continuam presentes no HTML. `frontend/dashboards.js` evita
 requisições sobrepostas e descarta respostas antigas ao trocar o dashboard selecionado.
+# Planejamento antes do agendamento
+
+`agents/schedule_planner.py` faz uma chamada isolada ao modelo para devolver um plano Pydantic. A chamada não dispõe das ferramentas da aplicação e não cria runs nem tarefas. A interface mantém o pedido e as opções capturados, apresenta as etapas e exige confirmação antes de revelar o formulário de data e hora. O agendamento persistido inclui `plan_steps`, que o scheduler repassa como plano confirmado na execução futura. O seletor de delegação consulta os perfis da sessão e permite reutilização ou criação respeitando o limite existente de dois.
+
+O planejamento e sua confirmacao ficam no chat; o dialogo configura somente a regra temporal. `core/schedule_recurrence.py` calcula a proxima ocorrencia diaria/semanal no fuso IANA. `finish_schedule` atualiza a regra e reserva um novo run UUID em transacao, verificando status e run_id atuais para nao ressuscitar cancelamentos ou duplicar conclusoes antigas. A pagina /agendamentos lista todas as regras por proprietario.

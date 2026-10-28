@@ -22,12 +22,13 @@ def test_usage_counts_all_requests_and_groups_conversations(store):
     assert store.usage_statistics() == dict(conversations=2, requests=106, completed=105, artifacts=1)
 
 
-def test_profile_includes_only_current_temporary_session(settings):
+def test_profile_includes_only_current_temporary_session(settings, client_owner_scope):
     with TestClient(create_app(settings, mcp=object(), client=object())) as client:
         assert client.get('/api/profile').json()['usage'] == dict(
             conversations=0, requests=0, completed=0, artifacts=0)
         conversation_id = str(uuid4())
-        client.app.state.store.save_run(request(conversation_id))
+        with client_owner_scope(client):
+            client.app.state.store.save_run(request(conversation_id))
         first = client.post('/api/import-sessions').json()['session_id']
         second = client.post('/api/import-sessions').json()['session_id']
         temporary = client.app.state.imports.get(first).store
@@ -37,7 +38,7 @@ def test_profile_includes_only_current_temporary_session(settings):
         temporary.save_artifact(run.id, 'Análise', 'txt', b'report')
         result = client.get('/api/profile', headers={'X-Data-Session': first}).json()
         assert result['name'] == 'Usuário'
-        assert 'compartilhado' in result['scope']
+        assert 'privados' in result['scope']
         assert result['usage'] == dict(conversations=2, requests=3, completed=2, artifacts=1)
         for headers in ({}, {'X-Data-Session': second}):
             assert client.get('/api/profile', headers=headers).json()['usage'] == dict(

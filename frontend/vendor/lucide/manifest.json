@@ -1,0 +1,120 @@
+{
+  "library": "Lucide",
+  "version": "0.468.0",
+  "license": "ISC",
+  "source": "https://github.com/lucide-icons/lucide/tree/0.468.0",
+  "icons": {
+    "chat": {
+      "name": "message-circle",
+      "sha256": "a9bd7a3e24bf81c598974bda992d0d363dd0996d0f14ecbe9986e03a07068884"
+    },
+    "search": {
+      "name": "search",
+      "sha256": "9322d964b61cf729b3a81210568d5a97eaf4a1f3239f25a056fda3013bf35611"
+    },
+    "globe": {
+      "name": "globe",
+      "sha256": "82c6b8fa0b8e8d775ec9becd86f74a4e50bff7bee4c81f7362de45348504f14d"
+    },
+    "send": {
+      "name": "send",
+      "sha256": "a489257f447b808ab6b258ae888fa49686885bbc30a7a2774d97a01f11f9cd5e"
+    },
+    "dashboard": {
+      "name": "layout-dashboard",
+      "sha256": "281ab865b4c04dab32a04023473e448f58be6a7ad90769450ac3349d79dc4aed"
+    },
+    "arrow": {
+      "name": "arrow-right",
+      "sha256": "288397fdb73bb4f783cf9eabb726ff47357df1d4e3f1201dd748090579f108b9"
+    },
+    "back": {
+      "name": "arrow-left",
+      "sha256": "c5f4b88076108eb1a0d95336e1aa7e7bb1419a3a92af96f6247d88cd3456f933"
+    },
+    "refresh": {
+      "name": "refresh-cw",
+      "sha256": "2e10dd403c85a24f163d59fc6151aa21147fe9402e1305dfc8979208caee8944"
+    },
+    "clock": {
+      "name": "clock",
+      "sha256": "ede96d40554848eaa512664b11e73def3960cd60c260efa59ca9ccc1bbe8ec9c"
+    },
+    "sidebar": {
+      "name": "panel-left-close",
+      "sha256": "8f5b1fc9255e60f212379e8e315087a2f0a595a639ad2fb25c255dc3295c4e7d"
+    },
+    "plus": {
+      "name": "plus",
+      "sha256": "7f6af73bf1ff6c4bca3f18351c8d1bdec6749c0c2530c4de5da85d520c21df17"
+    },
+    "external": {
+      "name": "arrow-up-right",
+      "sha256": "50b2503b9d11881142255466b7e3461d022b919735841c321d72003ac9959fe1"
+    },
+    "more": {
+      "name": "ellipsis",
+      "sha256": "4f495cc72013ffdfec677f03b33a150f7b4dd741979283fd6853a09024bca112"
+    },
+    "database": {
+      "name": "database",
+      "sha256": "471eb14bc8d144896a82dfc4aa9daf350f769f0896f4bef33e50aabdbb51130d"
+    },
+    "upload": {
+      "name": "upload",
+      "sha256": "04b9443355c959b3477b7856ee40dffa79438e5bfdb4e9dbf5159341ace26408"
+    },
+    "sparkles": {
+      "name": "sparkles",
+      "sha256": "cc8061ee31c43138e081522260d2ddd35465dfb2a4435fddd3d9857952d7231e"
+    },
+    "star": {
+      "name": "star",
+      "sha256": "c59da86b889569387db28e69ad00a89f96af22863ad9eea9aa12c4876a14338c"
+    },
+    "report": {
+      "name": "file-chart-column",
+      "sha256": "d270281c75ed5ac63d32ca32269a45c4b4ba373ffe4be0268513e16a1d255d9f"
+    },
+    "patterns": {
+      "name": "scan-search",
+      "sha256": "a2919e740bb122bb737542119c1d3c1042bcd62c79d702804553cc95ac768e1e"
+    },
+    "trend": {
+      "name": "trending-up",
+      "sha256": "eb0cd0a65b531010a2361e51d7c0dee3b68ffb01bebfd6d60adf60716ffe6e10"
+    },
+    "attach": {
+      "name": "paperclip",
+      "sha256": "510ced7c1ffbcec127ce6e4ed5fc1d4b268fbad75d6fe7926920b4113bc3bd73"
+    },
+    "close": {
+      "name": "x",
+      "sha256": "4a9cdab38fbb96162e7dace28e33f4ca0e49d8963a6162abc3d4691b7d675117"
+    },
+    "download": {
+      "name": "download",
+      "sha256": "21ee20839a201a74e612aafe7eaaf56f6ddc095c74aa5fcbb252c51f74a7535c"
+    },
+    "completed": {
+      "name": "circle-check",
+      "sha256": "3e519680ab8e2a8ad8f56a340c10d61957d872237aaa868cf324b0900a74f384"
+    },
+    "failed": {
+      "name": "circle-alert",
+      "sha256": "ce3e98b7a03b78c0071131df42466e4e1ff5187fccad30e739ec9ce951cf685a"
+    },
+    "cancelled": {
+      "name": "circle-x",
+      "sha256": "bcd8788901e6f29e1b231a81ba5e707d083d06cb4848a28f29407fab4f8e0b64"
+    },
+    "running": {
+      "name": "loader-circle",
+      "sha256": "043021bb903919668804bdb6fee0342072e4ffea5f03fbd857774c440179ad3b"
+    },
+    "users": {
+      "name": "users",
+      "sha256": "c94a3781b154ab2716e1696c25c50d37b4b5634f26cb80ae1cdea20cfafc49c1"
+    }
+  }
+}

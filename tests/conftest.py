@@ -1,7 +1,10 @@
+from contextlib import contextmanager
+
 import pytest
 from pydantic import SecretStr
 
 from core.config import Settings
+from core.history_identity import history_owner, identity_owner
 from repositories.local_store import Store
 
 
@@ -15,3 +18,16 @@ def settings(tmp_path):
 @pytest.fixture
 def store(settings):
     return Store(settings.data_dir)
+
+
+@pytest.fixture
+def client_owner_scope():
+    @contextmanager
+    def scope(client):
+        client.get('/health')
+        token = history_owner.set(identity_owner(None, client.cookies.get('scd-dashboard-profile')))
+        try:
+            yield
+        finally:
+            history_owner.reset(token)
+    return scope

@@ -31,6 +31,28 @@ function harness(apiHandler) {
 const table = {database: 'cora', schema: 'public', table: 'vendas'};
 const response = data => ({json: async () => data});
 
+test('catalog search ignores accents and case without making new requests', async () => {
+  let requests = 0;
+  const {$, context} = harness(async () => {
+    requests++;
+    return response({tables: [{schema: 'public', table: 'operações'}, {schema: 'public', table: 'clientes'}]});
+  });
+  await context.loadCatalogTables();
+  $('catalog-search').value = 'OPERACOES';
+  $('catalog-search').handlers.input();
+  assert.equal(requests, 1);
+  assert.equal($('preview-tables').children.length, 1);
+  assert.equal($('preview-tables').children[0].children[0].textContent, 'public.operações');
+  assert.match($('catalog-search-status').textContent, /^1 de 2/);
+  $('catalog-search').value = 'inexistente';
+  $('catalog-search').handlers.input();
+  assert.match($('preview-tables').children[0].textContent, /Nenhuma tabela/);
+  $('catalog-search').value = '';
+  $('catalog-search').handlers.input();
+  assert.equal($('preview-tables').children.length, 2);
+  assert.equal($('catalog-search-status').textContent, '');
+});
+
 test('dropping a table preserves the question and includes database, schema and table', () => {
   const {$} = harness();
   $('prompt').value = 'Compare os meses.';

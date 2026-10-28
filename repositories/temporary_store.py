@@ -31,6 +31,7 @@ class TemporaryStore:
         self.artifacts_dir = self.root / 'artifacts'
         self.artifacts_dir.mkdir()
         self.datasets, self.runs, self.artifacts = {}, {}, {}
+        self.workspace_subagents = {}
         self.closed = False
 
     def require_open(self):
@@ -96,25 +97,25 @@ class TemporaryStore:
 
     def list_runs(self, limit: int = 100):
         self.require_open()
-        runs = [*self.persistent.list_runs(limit), *self.runs.values()]
+        runs = [*self.persistent.list_runs(limit), *(run for run in self.runs.values() if not run.parent_run_id)]
         return sorted(runs, key=lambda run: run.created_at, reverse=True)[:limit]
 
     def conversation(self, conversation_id: str, limit: int = 6):
         runs = [*self.persistent.conversation(conversation_id, limit),
-                *(run for run in self.runs.values() if run.conversation_id == conversation_id)]
+                *(run for run in self.runs.values() if run.conversation_id == conversation_id and not run.parent_run_id)]
         return sorted(runs, key=lambda run: run.created_at)[-limit:]
 
     def list_conversations(self, limit: int | None = None):
         self.require_open()
         return latest_conversations(
-            [*self.persistent.list_conversations(), *self.runs.values()], limit)
+            [*self.persistent.list_conversations(), *(run for run in self.runs.values() if not run.parent_run_id)], limit)
 
     def has_conversation(self, conversation_id: str | None):
         return any(run.conversation_id == conversation_id for run in self.runs.values())
 
     def usage_statistics(self):
         self.require_open()
-        return self.persistent.usage_statistics(self.runs.values(), len(self.artifacts))
+        return self.persistent.usage_statistics((run for run in self.runs.values() if not run.parent_run_id), len(self.artifacts))
 
     def save_artifact(self, run_id: str, title: str, extension: str, content: bytes):
         self.require_open()
@@ -138,8 +139,12 @@ class TemporaryStore:
         pass
 
     def close(self):
+        with self.persistent.connect() as db:
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'subagent_slots'").fetchone():
+                db.execute('DELETE FROM subagent_slots WHERE temporary_session_id = ?', (self.root.name,))
         self.closed = True
         self.datasets.clear()
         self.runs.clear()
         self.artifacts.clear()
+        self.workspace_subagents.clear()
         remove_session_directory(self.root, self.root.parent)

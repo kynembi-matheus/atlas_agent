@@ -190,6 +190,30 @@ async def test_tool_failure_can_be_corrected(settings, store):
     assert 'listados' in run.answer
 
 
+async def test_agent_sets_and_retains_inferred_conversation_title(settings, store):
+    llm = ScriptLLM([('set_conversation_title', {'title': 'Evolução da carteira de crédito'}),
+                    'Primeira análise.', 'Continuação da análise.'])
+    manager = RunManager(Agent(settings, store, FakeMCP(), llm))
+    first = manager.submit(RunRequest(prompt='Analise a carteira de crédito.'))
+    assert first.title == ''
+    await manager.tasks[first.id]
+    assert store.get_run(first.id).title == 'Evolução da carteira de crédito'
+    second = manager.submit(RunRequest(prompt='Compare com o mês anterior.',
+                                      conversation_id=first.conversation_id))
+    assert second.title == 'Evolução da carteira de crédito'
+    await manager.tasks[second.id]
+    assert store.list_conversations()[0].title == 'Evolução da carteira de crédito'
+    assert 'Título atual da sessão' in llm.inputs[-1]['instructions']
+
+
+@pytest.mark.parametrize('title', ['  ', 'x' * 81])
+async def test_session_title_validates_before_persisting(settings, store, title):
+    run = new_run()
+    with pytest.raises(AgentError):
+        await Toolbox(settings, store, FakeMCP(), run).call('set_conversation_title', {'title': title})
+    assert run.title == ''
+
+
 async def test_cancel_running_and_queued(settings, store):
     started = asyncio.Event()
     class WaitingLLM:
@@ -263,6 +287,57 @@ async def test_independent_tools_share_one_round(settings, store):
     assert len([e for e in run.events if e['kind'] == 'tool_result']) == 2
 
 
+async def test_excess_calls_receive_outputs_and_run_continues(settings, store):
+    def batch(_):
+        return SimpleNamespace(output=[SimpleNamespace(
+            type='function_call', name='list_databases', arguments='{}', call_id=f'call-{i}'
+        ) for i in range(10)], output_text='')
+    class BatchLLM(ScriptLLM):
+        async def create(self, **kwargs):
+            if not self.inputs:
+                self.inputs.append(kwargs)
+                return batch(kwargs)
+            return await super().create(**kwargs)
+    llm = BatchLLM(['Análise concluída com as evidências disponíveis.'])
+    mcp, run = FakeMCP(), new_run()
+    await Agent(settings, store, mcp, llm).execute(run, RunRequest(prompt='Explore'))
+    assert len(mcp.calls) == 8
+    outputs = [item for item in llm.inputs[-1]['input']
+               if isinstance(item, dict) and item.get('type') == 'function_call_output']
+    assert len(outputs) == 10
+    assert [item['call_id'] for item in outputs] == [f'call-{i}' for i in range(10)]
+    assert all(json.loads(item['output'])['executed'] is False for item in outputs[8:])
+    assert run.answer.startswith('Análise concluída')
+
+
+@pytest.mark.parametrize('enabled,global_enabled', [(False, True), (True, True), (True, False)])
+async def test_web_choice_controls_catalog_and_execution(settings, store, monkeypatch,
+                                                         enabled, global_enabled):
+    from integrations.internet import Internet
+    accessed = []
+    async def read(self, url, offset):
+        accessed.append(url)
+        return {'url': url, 'text': 'Fonte pública'}
+    monkeypatch.setattr(Internet, 'read', read)
+    settings.internet_enabled = global_enabled
+    llm = ScriptLLM([('read_web_page', {'url': 'https://example.org/'}), 'Concluído.'])
+    run = new_run()
+    await Agent(settings, store, FakeMCP(), llm).execute(
+        run, RunRequest(prompt='Leia a página.', web_search_enabled=enabled))
+    effective = enabled and global_enabled
+    assert bool(accessed) == effective
+    names = {tool['name'] for tool in llm.inputs[0]['tools']}
+    assert ('search_web' in names) == effective
+    assert ('read_web_page' in names) == effective
+    if not effective:
+        assert any(event['kind'] == 'tool_error' and 'desativada' in event['message']
+                   for event in run.events)
+
+
+def test_web_is_opt_in():
+    assert RunRequest(prompt='Analise').web_search_enabled is False
+
+
 def test_persistence_recovers_interrupted_runs(store):
     running, done = new_run(), new_run('completed')
     store.save_run(running)
@@ -273,7 +348,7 @@ def test_persistence_recovers_interrupted_runs(store):
     assert restarted.get_run(done.id).status == 'completed'
 
 
-def test_api_auth_upload_download_and_validation(settings):
+def test_api_auth_upload_download_and_validation(settings, client_owner_scope):
     settings.app_api_key = SecretStr('application-secret')
     with TestClient(create_app(settings, mcp=FakeMCP(), client=ScriptLLM([]))) as client:
         assert client.get('/').status_code == 200
@@ -288,7 +363,8 @@ def test_api_auth_upload_download_and_validation(settings):
         assert client.get('/api/runs/not-a-uuid').status_code == 422
         assert client.post('/api/runs', json={'prompt': '  '}).status_code == 409
         assert client.get('/api/connections/pg-mcp').json()['connected']
-        artifact = client.app.state.store.save_artifact(str(uuid4()), 'Teste', 'csv', b'valor\n1')
+        with client_owner_scope(client):
+            artifact = client.app.state.store.save_artifact(str(uuid4()), 'Teste', 'csv', b'valor\n1')
         assert client.get(artifact['url']).content == b'valor\n1'
         assert client.get(artifact['url']).headers['cache-control'] == 'no-store'
         del client.headers['Authorization']

@@ -1,0 +1,102 @@
+- generic [ref=f1e1]:
+  - link "Pular para o pedido" [ref=f1e2] [cursor=pointer]:
+    - /url: "#prompt"
+  - generic [ref=f1e3]:
+    - complementary "Navegação e sessões" [ref=f1e4]:
+      - button "Minimizar sidebar" [expanded] [ref=f1e5] [cursor=pointer]
+      - link "Atlas Agent, início" [ref=f1e8] [cursor=pointer]:
+        - /url: /
+        - generic [aria-hidden] [ref=f1e9]: A
+        - generic [ref=f1e10]: Atlas Agent
+      - button "Nova sessão" [ref=f1e11] [cursor=pointer]
+      - generic [ref=f1e15]:
+        - generic [ref=f1e16]: Sessões
+        - link "Ver todas as sessões" [ref=f1e17] [cursor=pointer]:
+          - /url: /sessoes
+      - navigation "Sessões recentes" [ref=f1e18]:
+        - paragraph [ref=f1e19]: Nenhuma sessão ainda.
+      - link "Dashboards" [ref=f1e20] [cursor=pointer]:
+        - /url: /dashboards
+      - link "Agendamentos" [ref=f1e24] [cursor=pointer]:
+        - /url: /agendamentos
+      - button "Abrir perfil e uso de Perfil de teste" [ref=f1e28] [cursor=pointer]:
+        - generic [aria-hidden] [ref=f1e29]: PT
+        - generic [ref=f1e30]:
+          - strong [ref=f1e31]: Perfil de teste
+          - generic [ref=f1e32]: Departamento não informado
+      - paragraph [ref=f1e36]: Powered by AI
+    - main [ref=f1e37]:
+      - generic [ref=f1e39]:
+        - generic [ref=f1e40]:
+          - heading "Nova Conversa" [level=1] [ref=f1e42]
+          - button "Subagentes desta sessão" [ref=f1e43] [cursor=pointer]
+        - generic [ref=f1e46]:
+          - paragraph [ref=f1e47]: Agente Autônomo de Inteligência de Dados
+          - heading "Explore dados. Descubra padrões. Antecipe decisões." [level=2] [ref=f1e48]
+          - generic [ref=f1e49]:
+            - button "Criar relatório" [ref=f1e50] [cursor=pointer]
+            - button "Encontrar padrões" [ref=f1e54] [cursor=pointer]
+            - button "Fazer projeções" [ref=f1e58] [cursor=pointer]
+        - region "Enviar um pedido" [ref=f1e62]:
+          - generic "Consultas favoritas selecionadas"
+          - generic [ref=f1e63]:
+            - generic [ref=f1e64]: O que você precisa analisar?
+            - textbox "O que você precisa analisar?" [ref=f1e65]:
+              - /placeholder: Pergunte sobre seus dados. / skills · @ dados · ? queries
+            - generic [ref=f1e66]:
+              - generic [ref=f1e67]:
+                - generic [ref=f1e68] [cursor=pointer]: Anexar
+                - button "Anexar PDF, XLSX, CSV, DOCX ou PPTX" [ref=f1e71]
+              - generic [ref=f1e72]:
+                - button "Agendar" [ref=f1e73] [cursor=pointer]
+                - button "Delegar para Subagente" [ref=f1e76] [cursor=pointer]
+                - button "Executar" [ref=f1e79] [cursor=pointer]
+            - generic [ref=f1e83]:
+              - generic [ref=f1e84]:
+                - button "Pesquisar na web" [ref=f1e85] [cursor=pointer]
+                - navigation "Ferramentas do chat" [ref=f1e90]:
+                  - button "Dados" [expanded] [ref=f1e91] [cursor=pointer]
+                  - button "Importar" [ref=f1e95] [cursor=pointer]
+                  - button "Skills" [ref=f1e99] [cursor=pointer]
+                  - button "Queries" [ref=f1e103] [cursor=pointer]
+              - group "Formato de saída" [ref=f1e107]:
+                - generic [ref=f1e109] [cursor=pointer]:
+                  - radio "Normal" [checked] [ref=f1e110]
+                  - generic [ref=f1e111]: Normal
+                - generic [ref=f1e114] [cursor=pointer]:
+                  - radio "Dashboard" [ref=f1e115]
+                  - generic [ref=f1e116]: Dashboard
+          - generic [ref=f1e119]:
+            - generic [ref=f1e120]: / skills · @ dados · ? queries
+            - generic [ref=f1e121]: Enter envia · Alt + Enter quebra linha
+        - generic [ref=f1e122]:
+          - generic [ref=f1e123]: Preview visual
+          - link "Documentação" [ref=f1e126] [cursor=pointer]:
+            - /url: /docs
+    - complementary "Escolher seus dados" [ref=f1e129]:
+      - generic [ref=f1e130]:
+        - heading "Dados" [level=2] [ref=f1e131]
+        - button "Fechar seletor de dados" [active] [ref=f1e132] [cursor=pointer]
+      - paragraph [ref=f1e135]: Selecione a base e adicione uma tabela ao pedido.
+      - generic [ref=f1e136]: Base de Dados
+      - combobox "Base de Dados" [ref=f1e137]:
+        - option "cora" [selected]
+      - generic [ref=f1e138]:
+        - generic [ref=f1e139]: Schema
+        - generic [ref=f1e140]:
+          - textbox "Schema" [ref=f1e141]: public
+          - button "Carregar" [ref=f1e142] [cursor=pointer]
+      - status [ref=f1e143]: 2 tabela(s). Arraste para o chat.
+      - generic [ref=f1e144]: Buscar tabela
+      - searchbox "Buscar tabela" [ref=f1e145]
+      - generic "Tabelas do database" [ref=f1e146]:
+        - generic "Arraste esta tabela para o campo do chat" [ref=f1e147]:
+          - generic [ref=f1e148]: public.operacoes
+          - generic [ref=f1e149]:
+            - button "Preview de public.operacoes" [ref=f1e150] [cursor=pointer]: Preview
+            - button "Adicionar public.operacoes ao chat" [ref=f1e151] [cursor=pointer]: Adicionar ao chat
+        - generic "Arraste esta tabela para o campo do chat" [ref=f1e152]:
+          - generic [ref=f1e153]: public.clientes
+          - generic [ref=f1e154]:
+            - button "Preview de public.clientes" [ref=f1e155] [cursor=pointer]: Preview
+            - button "Adicionar public.clientes ao chat" [ref=f1e156] [cursor=pointer]: Adicionar ao chat

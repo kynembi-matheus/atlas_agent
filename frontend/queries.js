@@ -5,8 +5,8 @@ function clearQueryAttachments() { queriesState.selected = []; queriesState.resu
 function renderQueryAttachments() {
   $('query-attachments').replaceChildren();
   for (const item of queriesState.selected) {
-    const chip = el('span', 'attachment', `☆ ${item.name}`);
-    const remove = el('button', '', '×'); remove.type = 'button';
+    const chip = el('span', 'attachment'); chip.append(historyIcon('star'), el('span', '', item.name));
+    const remove = el('button'); remove.type = 'button'; remove.append(historyIcon('close'));
     remove.setAttribute('aria-label', `Remover consulta ${item.name}`);
     remove.addEventListener('click', () => { queriesState.selected = queriesState.selected.filter(query => query.id !== item.id); renderQueryAttachments(); });
     chip.append(remove); $('query-attachments').append(chip);
@@ -49,6 +49,7 @@ async function loadQueries() {
     $('queries-list').replaceChildren();
     for (const item of data.queries) {
       const card = el('article', 'skill-card');
+      registerChatDrag(card, 'query', item.id, item.name, () => chooseQuery(item));
       card.append(el('h3', '', item.name), el('p', 'muted', `${item.database} · até ${item.max_rows} linhas`));
       if (item.description) card.append(el('p', '', item.description));
       const sql = el('details'); sql.append(el('summary', '', 'Ver SQL'), el('pre', 'query-code', item.sql)); card.append(sql);

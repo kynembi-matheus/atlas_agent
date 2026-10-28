@@ -94,7 +94,7 @@ test('@ offers permitted databases then explicit public table references', async
   assert.match(h.requests[1], /database=cora&schema=public/);
 });
 
-test('keyboard selection wraps; Escape closes; Ctrl+Enter remains available to send', async () => {
+test('keyboard selection wraps; Escape closes; modified Enter remains available to the composer', async () => {
   const h = harness(() => ({skills}));
   await h.type('/');
   h.key('ArrowUp');

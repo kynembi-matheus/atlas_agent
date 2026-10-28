@@ -43,11 +43,12 @@ def postgres_dataset(store):
         'max_rows': 10, 'possibly_truncated': False})
 
 
-def test_library_refresh_ownership_and_delete(settings, store):
+def test_library_refresh_ownership_and_delete(settings, store, client_owner_scope):
     mcp = MCP()
-    key = postgres_dataset(store)['id']
     app = create_app(settings, mcp=mcp, client=object())
     with TestClient(app) as client:
+        with client_owner_scope(client):
+            key = postgres_dataset(store)['id']
         assert client.get('/dashboards').status_code == 200
         profile = client.cookies.get('scd-dashboard-profile')
         response = client.post('/api/dashboards', json=specification(key))
@@ -215,10 +216,9 @@ def test_table_abbreviates_measures_and_preserves_identifiers():
     assert 'data-value="1500000"' in html  # ordenação usa o valor integral
 
 
-def test_agent_task_inherits_browser_profile(settings, store):
+def test_agent_task_inherits_browser_profile(settings, store, client_owner_scope):
     import json
     import time
-    key = postgres_dataset(store)['id']
     calls = []
     async def respond(**kwargs):
         calls.append(kwargs)
@@ -229,6 +229,8 @@ def test_agent_task_inherits_browser_profile(settings, store):
         return SimpleNamespace(output=[], output_text='Dashboard criado.')
     llm = SimpleNamespace(responses=SimpleNamespace(create=respond))
     with TestClient(create_app(settings, mcp=MCP(), client=llm)) as client:
+        with client_owner_scope(client):
+            key = postgres_dataset(store)['id']
         client.get('/')
         result = client.post('/api/runs', json={'prompt': 'Crie um dashboard', 'output_format': 'dashboard'})
         assert result.status_code == 202
@@ -243,7 +245,7 @@ def test_agent_task_inherits_browser_profile(settings, store):
         assert run['artifacts'][0]['url'] == '/dashboards/' + item['id']
 
 
-def test_dynamic_filters_apply_before_aggregation_and_display_limit(settings, store):
+def test_dynamic_filters_apply_before_aggregation_and_display_limit(settings, store, client_owner_scope):
     from tools.dashboards import Dashboard, render_html
     rows = [{'pa': 'A', 'produto': 'Crédito', 'valor': 10},
             {'pa': 'B', 'produto': 'Crédito', 'valor': 90},
@@ -259,6 +261,14 @@ def test_dynamic_filters_apply_before_aggregation_and_display_limit(settings, st
                  {'title': 'Produtos', 'dataset_id': key, 'kind': 'bar',
                   'value_column': 'valor', 'label_column': 'produto', 'aggregation': 'sum'}])
     with TestClient(create_app(settings, mcp=object(), client=object())) as client:
+        with client_owner_scope(client):
+            # A mesma fonte de teste agora pertence ao usuário que cria o dashboard.
+            owned = store.save_dataset(rows, data['source'])
+        key = owned['id']
+        for item in spec.filters:
+            item.dataset_id = key
+        for item in spec.widgets:
+            item.dataset_id = key
         result = client.post('/api/dashboards', json=spec.model_dump())
         assert result.status_code == 201
         url = f"/api/dashboards/{result.json()['id']}/html"

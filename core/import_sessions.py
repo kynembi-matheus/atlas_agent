@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from uuid import UUID, uuid4
 
 from agents.orchestrator import Agent, RunManager
+from core.history_identity import history_owner
 from core.models import AgentError
 from repositories.temporary_store import TemporaryStore, remove_session_directory
 
@@ -14,6 +15,7 @@ class ImportSession:
     id: str
     store: TemporaryStore
     manager: RunManager
+    owner_id: str | None = None
     touched: float = field(default_factory=time.monotonic)
     importing: bool = False
 
@@ -41,18 +43,20 @@ class ImportSessions:
         session_id = str(uuid4())
         store = TemporaryStore(self.persistent, self.root, session_id)
         manager = RunManager(Agent(self.settings, store, self.mcp, self.client))
-        session = ImportSession(session_id, store, manager)
+        session = ImportSession(session_id, store, manager, owner_id=history_owner.get())
         self.sessions[session_id] = session
         return session
 
     def get(self, session_id: str):
         session = self.sessions.get(session_id)
-        if session is None:
+        if session is None or (history_owner.get() is not None and session.owner_id != history_owner.get()):
             raise AgentError('A sessão temporária expirou. Atualize a página e importe os dados novamente.')
         session.touched = time.monotonic()
         return session
 
     async def remove(self, session_id: str):
+        if session_id in self.sessions and history_owner.get() is not None:
+            self.get(session_id)
         session = self.sessions.pop(session_id, None)
         if session:
             await session.manager.close()

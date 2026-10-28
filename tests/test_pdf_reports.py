@@ -80,9 +80,10 @@ async def test_pdf_skill_is_discoverable_and_schema_is_registered(settings, stor
     assert 'methodology' in schema['parameters']['required']
 
 
-def test_pdf_download_mime_type(settings):
+def test_pdf_download_mime_type(settings, client_owner_scope):
     with TestClient(create_app(settings, mcp=FakeMCP(), client=ScriptLLM([]))) as client:
-        artifact = client.app.state.store.save_artifact('synthetic-run', 'Teste PDF', 'pdf', b'%PDF-test')
+        with client_owner_scope(client):
+            artifact = client.app.state.store.save_artifact('synthetic-run', 'Teste PDF', 'pdf', b'%PDF-test')
         response = client.get(artifact['url'])
         assert response.status_code == 200
         assert response.headers['content-type'] == 'application/pdf'

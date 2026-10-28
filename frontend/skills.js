@@ -17,6 +17,7 @@ async function loadSkills() {
     const data = await (await api('/api/skills')).json();
     for (const skill of data.skills) {
       const card = el('article', 'skill-card');
+      registerChatDrag(card, 'skill', skill.document_path, skill.name, () => chooseSkill(skill));
       card.append(el('h3', '', skill.name), el('p', 'muted', skill.description));
       const button = el('button', 'secondary', 'Usar no chat'); button.type = 'button';
       button.setAttribute('aria-label', `Usar ${skill.name} no chat`);

@@ -8,14 +8,27 @@ from contextlib import asynccontextmanager, suppress
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    Depends,
+    FastAPI,
+    File,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from agents.orchestrator import Agent, RunManager, make_client
+from agents.scheduler import Scheduler
 from api.auth import auth_router
+from api.workspaces import workspace_router
 from core.config import ROOT, Settings
 from core.dashboard_identity import dashboard_owner
+from core.history_identity import history_owner, identity_owner
 from core.import_sessions import ImportSession, ImportSessions
 from core.models import AgentError, LocalProfile, Run, RunRequest
 from core.skill_catalog import available_skills
@@ -23,9 +36,10 @@ from integrations.file_imports import ImportFailure, import_file
 from integrations.pg_mcp import PgMCP
 from integrations.sso import SSO, Identity
 from integrations.temporary_imports import infer_schema, normalize_tables, read_tables
+from repositories.auth_sessions import COOKIE, AuthSessions
 from repositories.dashboards import LIMIT, Dashboards
 from repositories.local_store import Store
-from repositories.auth_sessions import COOKIE, AuthSessions
+from repositories.workspaces import Workspaces
 from tools.dashboards import Dashboard, RefreshStore, refresh
 from tools.data_tools import (
     CATALOG_DATABASES,
@@ -57,15 +71,21 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
         app.state.manager = RunManager(Agent(settings, store, pg, llm))
         app.state.imports = ImportSessions(settings, store, pg, llm)
         app.state.llm = llm
+        app.state.scheduler = Scheduler(app.state.manager)
+        scheduler_task = asyncio.create_task(app.state.scheduler.serve())
         sweep = asyncio.create_task(app.state.imports.sweep())
         try:
             yield
         finally:
+            scheduler_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await scheduler_task
             sweep.cancel()
             with suppress(asyncio.CancelledError):
                 await sweep
             await app.state.imports.close()
             await app.state.manager.close()
+            await app.state.scheduler.close()
             if client is None:
                 await llm.close()
 
@@ -212,7 +232,10 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
     @router.post('/import-sessions', tags=['Importação temporária'], status_code=201)
     async def new_import_session(x_data_session: Annotated[UUID | None, Header()] = None):
         if x_data_session:
-            await app.state.imports.remove(str(x_data_session))
+            try:
+                await app.state.imports.remove(str(x_data_session))
+            except AgentError:
+                raise HTTPException(410, 'Sessão temporária não encontrada.') from None
         try:
             session = app.state.imports.create()
         except AgentError as exc:
@@ -222,7 +245,10 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
     @router.delete('/import-sessions/current', tags=['Importação temporária'], status_code=204)
     async def close_import_session(x_data_session: Annotated[UUID | None, Header()] = None):
         if x_data_session:
-            await app.state.imports.remove(str(x_data_session))
+            try:
+                await app.state.imports.remove(str(x_data_session))
+            except AgentError:
+                raise HTTPException(410, 'Sessão temporária não encontrada.') from None
 
     @router.post('/imports', tags=['Importação temporária'])
     async def temporary_upload(file: Annotated[UploadFile, File()], session: Session,
@@ -307,10 +333,13 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
         if new_owner:
             owner = secrets.token_hex(32)
         token = dashboard_owner.set(owner)
+        history_token = history_owner.set(identity_owner(
+            request.state.identity, owner, settings.sso_expected_issuer))
         try:
             response = blocked if blocked is not None else await call_next(request)
         finally:
             dashboard_owner.reset(token)
+            history_owner.reset(history_token)
         if new_owner:
             response.set_cookie('scd-dashboard-profile', owner, max_age=31536000,
                                 httponly=True, samesite='strict', secure=request.url.scheme == 'https')
@@ -338,6 +367,9 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
     @router.get("/status", tags=["Operação"])
     async def status():
         return {"llm_configured": settings.llm_ready, "model": settings.openai_model,
+                "internet_enabled": settings.internet_enabled,
+                "internet_search_provider": settings.internet_search_provider,
+                "internet_search_model": settings.internet_search_model or settings.openai_model,
                 "tls_verification": settings.openai_verify_ssl,
                 "mcp_tls_verification": settings.mcp_verify_ssl,
                 "auth_enabled": bool(auth_sessions or settings.app_api_key.get_secret_value()),
@@ -397,12 +429,15 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
 
     @router.post("/runs", response_model=Run, status_code=202, tags=["Execuções"])
     async def submit(request: RunRequest, session: Session):
+        if request.conversation_id and not scoped_store(session).conversation(str(request.conversation_id), 1) and not Workspaces(scoped_store(session)).owns(str(request.conversation_id)):
+            raise HTTPException(404, 'Conversa não encontrada.')
         try:
             manager = app.state.manager
             if session and (session.store.datasets
                             or session.store.has_conversation(str(request.conversation_id))):
                 manager = session.manager
-            return manager.submit(request)
+            profile = Workspaces(manager.store).user_agent_for(str(request.conversation_id)) if request.conversation_id else None
+            return manager.submit(request, profile=profile)
         except AgentError as exc:
             raise HTTPException(409, str(exc)) from None
 
@@ -423,6 +458,8 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
 
     @router.post("/runs/{run_id}/cancel", response_model=Run, tags=["Execuções"])
     async def cancel(run_id: UUID, session: Session):
+        if scoped_store(session).get_run(str(run_id)) is None:
+            raise HTTPException(404, 'Execução não encontrada.')
         manager = session.manager if session and str(run_id) in session.store.runs else app.state.manager
         run = await manager.cancel(str(run_id))
         if run is None:
@@ -466,10 +503,13 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
                             media_type=media[item["format"]])
 
     app.include_router(router)
+    app.include_router(workspace_router(app, authorize, import_session))
     app.mount("/static", StaticFiles(directory=ROOT / "frontend"), name="static")
 
     @app.get("/", include_in_schema=False)
     @app.get("/historico", include_in_schema=False)
+    @app.get("/sessoes", include_in_schema=False)
+    @app.get("/agendamentos", include_in_schema=False)
     @app.get("/dashboards", include_in_schema=False)
     async def index():
         return FileResponse(ROOT / "frontend/index.html")

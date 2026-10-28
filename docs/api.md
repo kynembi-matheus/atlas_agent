@@ -1,6 +1,36 @@
 # API
 
-`GET /api/conversations` retorna a execução mais recente de cada conversa, em ordem decrescente de criação, sem o limite legado de 100 registros. O parâmetro opcional `limit` aceita inteiros positivos (a barra lateral usa `limit=5`). Respeita `X-Data-Session`: inclui dados persistentes e somente as conversas temporárias da sessão atual. `/historico` serve a interface de histórico completo.
+## Agendamento e subagentes
+
+Todas as rotas abaixo exigem a autorização normal da API e o proprietário da sessão.
+IDs de outro usuário retornam 404. `X-Data-Session` mantém o escopo de importações.
+
+| Método | Rota | Contrato |
+|---|---|---|
+| POST | `/api/workspaces` | `{conversation_id?: UUID}` valida uma sessão existente ou reserva uma nova |
+| GET | `/api/workspaces/{id}/subagents` | Lista até dois perfis e seus estados/resultados |
+| GET | `/api/workspaces/{id}/context?source_run_id=UUID` | Resumo privado do contexto real da execução selecionada |
+| POST | `/api/workspaces/{id}/subagents` | `{name, instructions}` cria perfil do usuário com conversa própria; terceiro retorna 409 |
+| POST | `/api/workspaces/{id}/delegate` | `{subagent_id, task, source_run_id?, web_search_enabled?}` delega a auxiliar do principal com contexto |
+| POST | `/api/workspaces/{id}/subagents/{subagent_id}/run` | Mesmo corpo de delegação; executa perfil do usuário em conversa própria |
+| POST | `/api/workspaces/{id}/subagents/{subagent_id}/cancel` | Cancela somente a task auxiliar ativa |
+| POST | `/api/workspaces/{id}/schedules` | `{title, prompt, run_at, source_run_id?, web_search_enabled?, query_ids?}` cria execução única com contexto capturado no servidor |
+| GET | `/api/schedules` | Até 100 tarefas do usuário, ordenadas por data |
+| POST | `/api/schedules/{id}/cancel` | Cancela somente agendamento ainda pendente |
+
+`run_at` exige data/hora futura com fuso e é normalizado para UTC. Agendamentos temporários
+retornam 409. `RunRequest.subagent_tasks` aceita até duas atribuições do mesmo contrato de
+delegação. `Run.parent_run_id` identifica execuções auxiliares. Resultados principais e
+agendados continuam disponíveis nos endpoints de runs e conversas existentes.
+
+Perfis retornam `created_by` e `independent_conversation_id`. Runs pessoais retornam
+`agent_profile_id` e `origin_conversation_id`; mensagens normais para a conversa própria
+mantêm esse perfil automaticamente. `execution_options` e `context_snapshot` preservam
+as opções e a origem capturadas. O cliente não pode anexar um snapshot arbitrário nem
+selecionar a origem de outro usuário. Propostas do agente são eventos `tool_result`
+com `kind=schedule_proposal`; não aparecem em `/api/schedules` antes da confirmação.
+
+`GET /api/conversations` retorna a execução mais recente de cada conversa, em ordem decrescente de criação, sem o limite legado de 100 registros. O parâmetro opcional `limit` aceita inteiros positivos. Respeita `X-Data-Session`: inclui dados persistentes e somente as conversas temporárias da sessão atual. `/historico` serve a interface de histórico completo. A barra lateral usa `/api/workspace-sessions?limit=2` para exibir as duas sessões de origem mais recentes com seus subagentes.
 
 A descrição completa dos schemas fica em `/docs` e `/openapi.json`. Com `SSO_ENABLED=true`, a interface, documentação e `/api/*` exigem cookie de sessão SSO. Com SSO desligado, `/api/*` exige `Authorization: Bearer <APP_API_KEY>` quando configurada. Nunca envie `OPENAI_KEY` ou `MCP_API_KEY` ao navegador ou como chave da aplicação.
 
@@ -42,6 +72,22 @@ mesmo sem chave pública/target. Nesse modo, páginas e API exigem sessão local
 | GET | `/api/artifacts/{id}` | Download autenticado de arquivo gerado |
 
 ## Pedido e conversa
+
+As respostas `Run` incluem `title`, inferido pelo agente (até 80 caracteres, vazio antes
+da definição). O cliente não precisa fornecê-lo. O título é preservado entre os pedidos
+de uma conversa e acompanha os endpoints de listagem, respeitando o usuário autenticado.
+
+Histórico, execuções, datasets e artefatos são filtrados pela identidade autenticada no
+servidor; não existe parâmetro para escolher outro usuário. Fora do SSO, o escopo é o
+cookie de navegador. IDs de outro dono retornam 404, inclusive na continuação ou no
+cancelamento. `X-Data-Session` de outro usuário retorna 410. Dados legados sem dono
+permanecem armazenados, mas não aparecem na API. Estatísticas do perfil são privadas.
+
+`POST /api/runs` aceita `web_search_enabled` (booleano, padrão `false`). Somente `true`
+com `INTERNET_ENABLED=true` permite as ferramentas de pesquisa e leitura web naquela
+execução. `/api/status` retorna `internet_enabled`, a disponibilidade global do plugin.
+Também informa `internet_search_provider` e `internet_search_model` carregados no processo
+atual, permitindo verificar a configuração após reiniciar o serviço.
 
 `X-Data-Session: <UUID>` identifica uma sessão temporária isolada. Use o header na importação, na submissão/consulta das execuções que usam esses datasets e nos downloads de seus artefatos. O servidor retorna 410 para sessão encerrada/expirada; sem o header ou com outra sessão, dados temporários não são encontrados. Sessões sem importações ou conversas temporárias mantêm a persistência existente. A partir da importação, as novas execuções dessa sessão, incluindo perguntas seguintes, eventos, datasets derivados e artefatos ficam somente na sessão e não são gravados no SQLite. O upload legado `/api/datasets/upload` continua com seu contrato persistente; `/api/imports` é o fluxo temporário.
 
@@ -188,3 +234,18 @@ IDs de outro perfil retornam 404. Não existe identidade individual autenticada 
 `POST /api/runs` aceita `output_format: "auto" | "dashboard"` (padrão `auto`).
 A ferramenta `create_dashboard` usa o mesmo schema de criação e retorna
 `{id, title, format: "dashboard", url: "/dashboards/uuid", refresh_seconds: 60}`.
+
+`POST /api/workspaces/{conversation_id}/subagents/execute` cria um perfil com nome automático e inicia a tarefa em uma chamada. Recebe `task`, `source_run_id`, `dataset_ids`, `query_ids`, `output_format` e `web_search_enabled`. Retorna a execução (202); falhas de admissão liberam a vaga reservada.
+
+`POST /api/workspaces/{conversation_id}/schedules/plan` recebe `prompt`, `source_run_id` e opções de execução, e retorna `title`, `steps`, `prompt` e `source_run_id`. Faz apenas uma chamada de planejamento, sem criar execução ou agendamento. Após a revisão e confirmação na interface, `POST /api/workspaces/{conversation_id}/schedules` recebe também `plan_steps`, `dataset_ids` e `output_format`. As etapas ficam persistidas para a execução futura.
+
+`ScheduleTask` aceita `frequency` (`once`, `daily`, `weekly`), `weekdays` (0=segunda a 6=domingo) e `timezone` IANA. A regra semanal exige dias e data inicial compativel. `GET /api/schedules` lista todas as tarefas do proprietario, com `last_run_id`/`last_status` quando houver recorrencia. `GET /agendamentos` abre a pagina da biblioteca.
+
+`GET /api/workspace-sessions?limit=2` retorna sessões agrupadas para a navegação. O limite
+conta sessões de origem, incluindo todos os seus subagentes. Cada item preserva os campos
+da execução principal e acrescenta `activity_at` e `subagents` (`id`, `name`, `status`,
+`run_id`, `task`, `color`). A ordem considera a atividade mais recente do grupo. Se a
+sessão começou por delegação, `id` é nulo até existir uma execução principal; seus
+subagentes continuam acessíveis por `GET /api/runs/{run_id}`. `color` usa `teal` e
+`violet` conforme a posição do perfil na sessão. Aplica o mesmo proprietário e
+`X-Data-Session` das demais rotas. `/api/conversations` mantém seu contrato anterior.

@@ -1,8 +1,154 @@
 # Configuração e operação
 
-O histórico exibe cinco conversas por página. Use “Anterior” e “Próxima” abaixo da lista; a indicação de página acompanha os resultados filtrados. Alterar a busca ou o status volta à primeira página. Os controles aparecem somente quando há mais de cinco resultados.
+## Plugin de internet
 
-Em `/historico`, use a busca por texto (sem distinção de acentos ou maiúsculas) e o filtro por status para encontrar conversas. “Limpar filtros” restaura a listagem completa. “Atualizar” recarrega o histórico sem encerrar a sessão temporária; cada card abre o último pedido daquela conversa. A contagem reflete os filtros aplicados. Em falha de atualização, os resultados já carregados permanecem disponíveis.
+Disponível por padrão na instalação, sem nova dependência ou chave de API. Reinicie a aplicação pela
+raiz com `uv run app.py`. A configuração existente em `.config/.env` é preservada.
+Overrides opcionais no ambiente do processo ou no arquivo de configuração:
+
+No canto inferior esquerdo do campo de mensagem, clique no botão **Pesquisar na web** para autorizar
+pesquisa e leitura de páginas no próximo pedido. Começa desligado ao abrir a página;
+clique novamente para desativar. O botão inclui um globo e destaca o estado ativo.
+Ao lado, **Normal** e **Dashboard** formam um seletor de
+saída com ícones e destaque da opção ativa; **Normal** é o padrão. Use Tab e as setas
+para navegar pelas opções de saída pelo teclado.
+**Dados**, **Importar**, **Skills** e **Queries** ficam na mesma barra inferior do
+campo de mensagem, ao lado de **Pesquisar na web**. Os botões abrem os painéis
+existentes e se reorganizam em linhas quando houver menos espaço.
+Nos painéis **Importar**, **Skills** e **Queries**, arraste um card para o campo de
+mensagem ou use o botão de inclusão. Skills adicionam a orientação ao pedido;
+importações anexam o dataset da sessão; Queries selecionam a favorita sem executá-la.
+O texto existente é preservado, os limites continuam válidos e o arraste não envia
+o pedido automaticamente. Importações de sessões encerradas não podem ser reutilizadas.
+**Enter** envia o pedido; **Alt + Enter** insere uma quebra de linha na posição do cursor,
+inclusive substituindo texto selecionado e respeitando o limite do editor.
+A seleção permanece para as próximas mensagens enquanto a página estiver aberta.
+Desligado, o servidor remove as ferramentas web do catálogo e bloqueia chamadas diretas
+naquela execução. Alterar a opção não muda um pedido já enviado. Com o plugin desativado
+na instalação, o controle fica indisponível. Em caso de bloqueio do provedor (202/403/429),
+o agente recebe uma explicação e novas buscas são suspensas apenas naquela execução.
+
+```dotenv
+INTERNET_ENABLED=true
+INTERNET_SEARCH_PROVIDER=openai
+INTERNET_SEARCH_MODEL=
+INTERNET_TIMEOUT_SECONDS=25
+INTERNET_MAX_BYTES=1048576
+```
+
+`search_web` aceita `query` (2–500 caracteres) e `max_results` (1–8, padrão 5).
+Por padrão usa `web_search` na Responses API com o cliente e a chave OpenAI existentes.
+O modelo é `INTERNET_SEARCH_MODEL` ou, quando vazio, `OPENAI_MODEL`; precisa suportar a ferramenta.
+Requer acesso e saldo no provedor e pode gerar cobrança por busca e tokens. Envia somente a
+consulta pública, sem histórico ou anexos, e retorna síntese e URLs das fontes. Não dispara
+fallback silencioso para outro provedor. `INTERNET_SEARCH_PROVIDER=duckduckgo` seleciona
+explicitamente a alternativa HTML, sujeita a CAPTCHA e bloqueios HTTP 202/403/429.
+Depois de erro de busca, `search_web` é removida do catálogo pelo restante da execução.
+Não confunda falha da busca com ausência de fatos.
+`read_web_page` aceita `url` e `offset` (padrão 0), e devolve título, texto de até
+12000 caracteres, URL final, data da consulta, `next_offset` e indicadores de recorte.
+A paginação relê a página e pode refletir mudanças no conteúdo remoto.
+
+O download limita o corpo a 1 MiB por padrão (configurável entre 16 KiB e 2 MiB);
+`download_truncated=true` significa que o restante não foi baixado, mesmo quando
+`next_offset=null`. `partial=true` também identifica um trecho paginado. Há timeout
+total por leitura HTTP (1–60 segundos) e no máximo quatro redirecionamentos. A busca
+hospedada tem tolerância de 150 segundos, dentro do timeout total da execução.
+
+Somente GET público HTTP/HTTPS nas portas 80/443, HTML e texto simples. Não executa
+JavaScript nem acessa login, PDFs, imagens ou OCR. Respostas comprimidas são recusadas;
+o leitor solicita `Accept-Encoding: identity`. Acesso direto à internet é necessário:
+o plugin não usa proxies do ambiente. TLS é sempre verificado, respeitando as CAs
+do contexto SSL do Python; não herda `MCP_VERIFY_SSL=false`. Se houver inspeção TLS,
+configure uma CA confiável via `SSL_CERT_FILE` em vez de desativar a verificação.
+Se o Python informar `Basic Constraints of CA cert not marked critical`, a cadeia
+recebida contém uma CA incompatível com a validação TLS atual. Corrija a cadeia/CA
+com a equipe responsável pelo certificado ou inspeção de rede, mantendo a verificação ativa.
+
+Endereços privados, locais, link-local, multicast e túneis IPv6 são bloqueados.
+Todos os endereços DNS retornados precisam ser públicos. Cada destino de redirecionamento
+é revalidado, a conexão fixa o IP aprovado e mantém o hostname original para TLS.
+URLs com credenciais e redirecionamentos de HTTPS para HTTP são recusados.
+Não encaminha cookies, tokens da aplicação ou chaves de outros serviços.
+As consultas são enviadas ao provedor de busca e as URLs aos sites consultados;
+use apenas termos públicos. O agente é instruído a não enviar dados internos ou pessoais.
+Essa orientação não é um filtro DLP automático. Páginas são dados não confiáveis.
+
+`INTERNET_ENABLED=false` remove as ferramentas do catálogo enviado ao modelo e bloqueia
+também chamadas diretas. Reinicie após alterar a configuração. Fontes e trechos retornados
+ficam nos eventos da conversa conforme a política de armazenamento já existente.
+
+**Sessões** exibe cinco análises por página. Use “Anterior” e “Próxima” abaixo da lista;
+a indicação de página acompanha os resultados filtrados. Alterar a busca ou o status
+volta à primeira página. Os controles aparecem somente quando há mais de cinco resultados.
+
+Ao abrir uma sessão, o cabeçalho mostra **Nova Conversa**. Na primeira interação, o agente
+é orientado a inferir um título curto pelo assunto e salvá-lo com `set_conversation_title`.
+O cabeçalho e a lista de Sessões exibem esse título, que permanece nas próximas mensagens
+e pode ser atualizado pelo agente quando o assunto mudar. Enquanto não houver título,
+o cabeçalho mantém **Nova Conversa** e a lista usa o pedido original. A busca considera
+tanto o título quanto o pedido original. A inferência ocorre na execução normal, sem
+chamada adicional de IA apenas para o título.
+
+Em `/sessoes` (também disponível em `/historico`), use a busca por texto e o filtro por
+status para encontrar suas sessões. “Limpar filtros” restaura a listagem completa.
+“Atualizar” recarrega as sessões sem encerrar a importação temporária; cada card abre
+o último pedido daquela sessão. Em falha de atualização, os resultados permanecem visíveis.
+Enquanto houver sessões em andamento ou na fila, a lista é atualizada a cada quatro
+segundos, pausando as chamadas quando a aba estiver oculta. Indicadores giram durante
+a execução, pulsam na fila e ficam estáticos ao concluir, falhar ou cancelar.
+`prefers-reduced-motion: reduce` desativa essas animações.
+
+Os ícones da interface usam SVGs oficiais da biblioteca Lucide, servidos localmente
+em `frontend/vendor/lucide`. Não há CDN, fonte externa ou build Node. A versão, origem
+e licença ficam documentadas junto aos arquivos. O logotipo Atlas Agent é preservado.
+Na sidebar minimizada, os botões mantêm áreas de 48 × 48 px e ícones de 22 px centralizados;
+os textos ficam ocultos, preservando os nomes acessíveis. Esse modo é aplicado somente
+acima de 760 px; em telas menores prevalece a navegação móvel.
+
+## Agendamentos e subagentes
+
+**Agendar** usa o pedido do chat ou o ultimo pedido enviado quando o campo esta vazio. O plano e a confirmacao aparecem no chat. Apenas depois da confirmacao abre o popup para configurar frequencia (uma vez, diariamente ou semanalmente), dias da semana, data inicial e horario. Na frequencia semanal, a primeira data deve coincidir com um dia escolhido.
+
+A guia **Agendamentos** da sidebar mostra todas as tarefas do usuario, incluindo as concluidas e canceladas. A lista atualiza automaticamente e oferece cancelamento antes do disparo e acesso ao ultimo resultado. Datas sao exibidas no fuso local e persistidas em UTC com o fuso IANA da regra. Cada ocorrencia recebe um UUID proprio. A recorrencia conserva o horario local, considera mudancas de horario de verao e avanca para a proxima ocorrencia futura sem executar todos os intervalos perdidos. Se o servidor estiver desligado, tenta uma ocorrencia vencida ao voltar.
+
+As etapas confirmadas e o contexto da origem acompanham a execucao futura. Resultados antigos sao referencia; consultas devem ser atualizadas. Fontes temporarias nao podem ser agendadas. Somente o criador lista e cancela suas tarefas. A aplicacao precisa permanecer ligada e deve usar somente um processo Uvicorn. Reinicie com `uv run app.py` para carregar as alteracoes.
+
+O principal pode propor um agendamento com `propose_schedule`; a proposta segue a revisao e confirmacao no chat. `schedule_task` continua reservado a autorizacao explicita com data/hora/fuso. Cancelar um agendamento pendente interrompe a recorrencia. Para cancelar uma execucao em andamento, abra seu resultado.
+
+**Subagentes:** o diálogo separa **Equipe do principal** e **Criados por você**. Há no
+máximo dois perfis no total, incluindo os já concluídos; reutilize-os. O principal cria
+seus auxiliares conforme a tarefa, delega um escopo específico com o contexto capturado
+e recebe os resultados para síntese. Pode usar `create_subagent`, `list_subagents`,
+`delegate_to_subagent`, `delegate_to_subagents` e `cancel_subagent` por solicitação do usuário.
+Delegação em lote executa duas tarefas independentes simultaneamente. O diálogo permite
+acompanhar estado, ler resultados e cancelar a tarefa de um auxiliar.
+
+**Criar meu subagente** cria um perfil do usuário separado dos auxiliares automáticos.
+Informe sua especialidade, descreva a tarefa específica e use **Iniciar conversa própria**.
+O pedido e as fontes da execução selecionada acompanham a abertura. A conversa tem ID,
+histórico e execução próprios; mensagens seguintes mantêm esse perfil, sem voltarem
+silenciosamente ao principal. **Retomar conversa própria** abre seu último pedido.
+O principal não delega automaticamente a perfis do usuário. A opção de pesquisa web
+do chat controla cada acionamento manual. Perfis antigos sem origem registrada são
+tratados como auxiliares do principal, sem inferir autoria retroativa.
+
+O limite `MAX_AGENT_STEPS` (padrão/máximo 60) é compartilhado pelo principal e seus
+auxiliares; a última etapa fica reservada à síntese do principal. Cada tarefa auxiliar
+tem até 12 etapas dentro desse total e do timeout do principal. Cancelar o principal
+cancela também os auxiliares ativos. Auxiliares usam as mesmas ferramentas de dados
+somente leitura e não podem criar subagentes, alterar o título ou agendar tarefas.
+Seus arquivos são disponibilizados também na execução principal.
+O agente do usuário, por ter conversa própria, usa um orçamento e cancelamento próprios;
+o cancelamento do principal não encerra essa conversa separada. Agendamentos criados
+a partir dela mantêm seu perfil na execução futura.
+
+Perfis/resultados são privados por usuário e sessão. Com importações temporárias,
+as novas definições e os resultados auxiliares ficam na área temporária e são eliminados
+com ela. Perfis persistentes usados nessa área recebem estado/resultado apenas na memória
+da sessão, sem gravar conteúdo importado no SQLite. As novas tabelas SQLite são criadas
+automaticamente sem alterar `.config/.env`. Agentes adicionais e tarefas futuras usam
+o provedor configurado e podem consumir créditos de IA.
 
 ## Iniciar
 
@@ -18,7 +164,16 @@ O launcher aceita `--host`, `--port`, `--reload` e `--development`. Para acesso 
 uv run app.py --host 0.0.0.0 --port 8080
 ```
 
-É uma aplicação para operador único ou ambiente compartilhado de confiança. A autenticação não isola o histórico, consultas, datasets ou importações por usuário. Com `SSO_ENABLED=true`, a interface e a API exigem sessão ScdAuth; `APP_API_KEY` não substitui essa sessão. Com SSO desligado, permanece a autenticação por `APP_API_KEY`: clientes HTTP ou um proxy autenticado devem fornecer `Authorization: Bearer <chave>`.
+Histórico, datasets, arquivos e sessões temporárias são privados por usuário. Consultas
+favoritas permanecem compartilhadas. Com `SSO_ENABLED=true`, a interface e a API exigem
+sessão ScdAuth; `APP_API_KEY` não substitui essa sessão. Com SSO desligado, a API key continua
+válida e o histórico é isolado por cookie de navegador, sem identificação pessoal. Limpar
+esse cookie perde acesso ao histórico desse perfil. Para identidade entre navegadores, use SSO.
+
+O SQLite recebe colunas `owner_id` e índices por migração aditiva ao iniciar. Registros
+legados sem proprietário ficam preservados e ocultos na API; não são atribuídos ao primeiro
+login. Não há inferência automática de dono. Continuação, abertura, cancelamento e downloads
+de outro usuário retornam 404; sessão temporária de outro usuário retorna 410.
 
 ## Login JWT ScdAuth
 
@@ -54,7 +209,7 @@ Nenhum JWT é colocado no cookie. O mesmo `jti` só pode iniciar uma sessão uma
 expirar. Cookies antigos são revogados ao refazer login no mesmo navegador.
 `POST /logout` revoga a sessão no servidor e remove o cookie. Requisições sem sessão
 retornam 401, exceto login, saúde e arquivos estáticos. O perfil mostra nome e e-mail
-validados; as estatísticas continuam refletindo o armazenamento compartilhado.
+validados; as estatísticas refletem somente o histórico e os arquivos do usuário atual.
 
 `GET /login` retorna 405 sem as duas condições simultâneas: `ENVIRONMENT=development`
 e inicialização com `uv run app.py --development`. Somente nessa combinação,
@@ -236,7 +391,7 @@ Os testes automatizados usam IA e MCP simulados, sem custos ou acesso a dados de
 
 ## Atalhos no chat
 
-Digite `/` no campo de mensagem para buscar uma skill pelo nome. Digite `@` para escolher uma base permitida e depois uma tabela do schema `public`; também é possível digitar `@cora.vendas` para filtrar. Use as setas para navegar, Enter para escolher e Escape para fechar. Ctrl+Enter continua enviando o pedido. A seleção preserva o texto antes e depois do cursor e insere uma menção curta, como `/Relatórios em PDF` ou `@cora.public.vendas`. No envio, a interface expande as menções selecionadas para a orientação da skill ou a referência completa da tabela. Remover a menção do pedido também remove essa orientação do envio. Nenhuma análise é executada durante a seleção. Para outros schemas e amostras, use o painel de dados. Os catálogos são carregados sob demanda e mantidos em memória até recarregar a página. Falhas aparecem no menu; digitar novamente repete a consulta.
+Digite `/` no campo de mensagem para buscar uma skill pelo nome. Digite `@` para escolher uma base permitida e depois uma tabela do schema `public`; também é possível digitar `@cora.vendas` para filtrar. Use as setas para navegar, Enter para escolher e Escape para fechar. Fora do menu, Enter envia o pedido e Alt+Enter quebra linha. A seleção preserva o texto antes e depois do cursor e insere uma menção curta, como `/Relatórios em PDF` ou `@cora.public.vendas`. No envio, a interface expande as menções selecionadas para a orientação da skill ou a referência completa da tabela. Remover a menção do pedido também remove essa orientação do envio. Nenhuma análise é executada durante a seleção. Para outros schemas e amostras, use o painel de dados. Os catálogos são carregados sob demanda e mantidos em memória até recarregar a página. Falhas aparecem no menu; digitar novamente repete a consulta.
 
 Valide os atalhos sem IA ou banco reais com `node tests/test_mentions_frontend.js`.
 
@@ -280,7 +435,7 @@ como “Não informado”. No bypass, configure `ENVIRONMENT_PROFILE`, `ENVIRONM
 dados da sessão atual; para receber alterações feitas no ScdAuth, faça novo login.
 
 O popup também mostra as contagens de conversas, pedidos enviados, análises
-concluídas e arquivos gerados. São totais do histórico compartilhado desta instalação
+concluídas e arquivos gerados. São totais do histórico privado do usuário atual
 mais a sessão temporária atual, sem incluir sessões temporárias de outros navegadores.
 As estatísticas são atualizadas ao abrir o popup ou clicar em **Atualizar perfil**.
 Dados temporários saem da contagem quando a sessão é encerrada.
@@ -329,4 +484,24 @@ Esta instalação não tem contas individuais. A biblioteca usa um cookie opaco 
 de perfil do navegador (`scd-dashboard-profile`, validade de um ano). Navegadores diferentes
 têm bibliotecas distintas; limpar cookies inicia outro perfil e perde o acesso anterior.
 A cota é de perfil local, sem garantia de limite por conta autenticada. A autenticação
-global APP_API_KEY continua válida; histórico e favoritas continuam compartilhados.
+global APP_API_KEY continua válida. Histórico é privado; favoritas continuam compartilhadas.
+
+Subagentes novos recebem nomes de pessoas escolhidos automaticamente no servidor. No chat, descreva a tarefa; a conversa do subagente herda o título e o contexto da execução de origem. O contexto pode indicar fontes indisponíveis e mantém o limite de dez referências de datasets.
+
+**Agendar** prepara um plano usando o pedido escrito no chat (ou o último pedido enviado, se o campo estiver vazio). Revise e confirme o plano para liberar a configuração de data e hora; o agendamento só é criado ao salvar. O planejamento não executa a tarefa. As etapas confirmadas acompanham a execução futura. Anexos temporários precisam de fontes persistentes para serem agendados.
+
+Em **Sessões**, os subagentes ficam abaixo da sessão de origem, com nome, cor e status.
+A barra lateral mostra apenas as duas sessões mais recentes. Use **Ver todas as
+sessões**, no cabeçalho dessa área, para abrir a biblioteca completa. A atualização
+dos status continua automática durante as execuções.
+A busca aceita o nome e a tarefa do subagente; os filtros preservam o grupo. Ao abrir,
+o cabeçalho exibe “Título da sessão · Nome” e permite voltar à sessão principal.
+A paginação conta sessões, sem separar os seus subagentes. As cores turquesa e violeta
+distinguem os dois perfis dentro de cada sessão.
+
+No popup de agendamento, confira a tarefa confirmada e o resumo da frequência, início e
+horário. Para repetir semanalmente, marque os dias; a data inicial precisa corresponder
+a um deles. O fuso do navegador aparece abaixo dos campos. **Revisar plano** volta à
+confirmação no chat. A tarefa só é salva em **Salvar agendamento**.
+
+**Delegar para Subagente** cria e inicia um agente quando nenhum existe. Se já houver agentes, escolha um disponível ou crie outro, até o limite de dois. Agentes ocupados mostram seu estado e não recebem uma segunda tarefa simultânea. Fechar a seleção mantém o pedido no chat.

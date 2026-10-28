@@ -92,9 +92,11 @@ test('chat rendering formats answers from history and preserves unchanged DOM du
   });
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../frontend/markdown.js'), 'utf8'), context);
   const source = fs.readFileSync(path.join(__dirname, '../frontend/app.js'), 'utf8');
+  vm.runInContext(source.slice(source.indexOf('function sessionAgentIdentity('), source.indexOf('function appendSessionAgents(')), context);
   vm.runInContext(source.slice(source.indexOf('function render(run)'), source.indexOf('function stopPolling()')), context);
   const run = {prompt: '**pedido literal**', answer: '**Resposta**', status: 'completed', id: 'history', created_at: '2026-10-26T12:00:00Z', artifacts: []};
   context.render(run);
+  assert.equal(nodes.get('conversation-title').textContent, 'Nova Conversa');
   assert.equal(nodes.get('user-message').textContent, '**pedido literal**');
   const strong = descendants(nodes.get('answer'), 'strong')[0];
   assert.equal(textOf(strong), 'Resposta');
@@ -103,6 +105,8 @@ test('chat rendering formats answers from history and preserves unchanged DOM du
   context.render({...run, answer: '*Atualizada*'});
   assert.equal(descendants(nodes.get('answer'), 'strong').length, 0);
   assert.equal(textOf(descendants(nodes.get('answer'), 'em')[0]), 'Atualizada');
+  context.render({...run, title: '<img src=x onerror=alert(1)>'});
+  assert.equal(nodes.get('conversation-title').textContent, '<img src=x onerror=alert(1)>');
 });
 
 test('steps fade as new events arrive, preserving expanded results and scroll position', () => {
@@ -191,7 +195,7 @@ test('attachment limit rejects the whole selection before uploading', async () =
 
 test('model name is displayed in the sidebar from the status API', async () => {
   const label = {};
-  const context = vm.createContext({$: id => { assert.equal(id, 'model-label'); return label; },
+  const context = vm.createContext({$: id => id === 'web-search-enabled' ? null : label,
     api: async () => ({json: async () => ({model: 'modelo-configurado', llm_configured: true})}), notice: () => {}});
   const source = fs.readFileSync(path.join(__dirname, '../frontend/app.js'), 'utf8');
   vm.runInContext(source.slice(source.indexOf('async function refreshStatus'), source.indexOf('async function refreshHistory')), context);

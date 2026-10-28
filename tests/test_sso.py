@@ -45,6 +45,71 @@ def browser(settings, *, development=False):
                       base_url='https://atlas.test', follow_redirects=False)
 
 
+def test_history_is_private_across_logins_and_restarts(sso_settings, private_key):
+    from types import SimpleNamespace
+
+    from core.history_identity import history_owner, identity_owner
+    from core.models import Run
+    from integrations.sso import Identity
+    from repositories.local_store import now
+
+    class LLM:
+        def __init__(self):
+            self.responses = self
+            self.inputs = []
+
+        async def create(self, **kwargs):
+            self.inputs.append(kwargs)
+            return SimpleNamespace(output=[], output_text='Análise concluída.')
+
+    llm = LLM()
+    app = create_app(sso_settings, mcp=object(), client=llm)
+    with TestClient(app, base_url='https://atlas.test', follow_redirects=False) as client:
+        assert client.post('/login', json={'token': token(private_key)}).status_code == 303
+        first = client.post('/api/runs', json={'prompt': 'Histórico confidencial de A'}).json()
+        first_id = first['id']
+        assert client.get(f'/api/runs/{first_id}').status_code == 200
+        session_id = client.post('/api/import-sessions').json()['session_id']
+        scope = history_owner.set(identity_owner(Identity(email='user@example.test', name='A'), '',
+                                                 sso_settings.sso_expected_issuer))
+        try:
+            artifact = app.state.store.save_artifact(first_id, 'Arquivo A', 'md', b'privado A')
+            dataset = app.state.store.save_dataset([{'segredo': 'A'}], {}, first_id)
+        finally:
+            history_owner.reset(scope)
+        # Legado sem dono: nunca atribuído ao primeiro usuário que entrar.
+        legacy = Run(id=str(uuid4()), conversation_id=str(uuid4()), prompt='Legado sem dono',
+                     status='completed', created_at=now(), updated_at=now())
+        app.state.store.save_run(legacy)
+        signed_b = token(private_key, sub='second@example.test', email='second@example.test')
+        assert client.post('/login', json={'token': signed_b}).status_code == 303
+        assert client.get('/api/conversations').json() == []
+        assert client.get('/api/runs').json() == []
+        assert client.get('/api/profile').json()['usage']['requests'] == 0
+        assert client.get(f'/api/runs/{first_id}').status_code == 404
+        assert client.get(f'/api/runs/{legacy.id}').status_code == 404
+        assert client.post(f'/api/runs/{first_id}/cancel').status_code == 404
+        assert client.post('/api/runs', json={'prompt': 'Continue',
+                          'conversation_id': first['conversation_id']}).status_code == 404
+        assert client.get(artifact['url']).status_code == 404
+        assert client.get(f'/api/datasets/{dataset["id"]}').status_code == 404
+        headers = {'X-Data-Session': session_id}
+        assert client.get('/api/conversations', headers=headers).status_code == 410
+        assert client.post('/api/import-sessions', headers=headers).status_code == 410
+        assert client.delete('/api/import-sessions/current', headers=headers).status_code == 410
+        assert session_id in app.state.imports.sessions
+        second = client.post('/api/runs', json={'prompt': 'Pedido de B'}).json()
+        assert [run['id'] for run in client.get('/api/conversations').json()] == [second['id']]
+        assert 'Histórico confidencial de A' not in str(llm.inputs[-1]['input'])
+        assert client.post('/login', json={'token': token(private_key)}).status_code == 303
+        assert [run['id'] for run in client.get('/api/conversations').json()] == [first_id]
+        assert client.get(artifact['url']).content == b'privado A'
+        assert client.get(f'/api/runs/{second["id"]}').status_code == 404
+    with browser(sso_settings) as client:
+        assert client.post('/login', json={'token': token(private_key)}).status_code == 303
+        assert [run['id'] for run in client.get('/api/conversations').json()] == [first_id]
+
+
 @pytest.mark.parametrize('transport', ['form', 'json', 'bearer'])
 def test_login_transports_profile_logout(sso_settings, private_key, transport):
     signed = token(private_key)
@@ -67,7 +132,7 @@ def test_login_transports_profile_logout(sso_settings, private_key, transport):
         profile = client.get('/api/profile').json()
         assert profile['identity'] == 'user@example.test'
         assert profile['name'] == 'Nome SSO'
-        assert 'compartilhado' in profile['scope']
+        assert 'privados' in profile['scope']
         assert client.get('/').status_code == 200
         assert client.post('/logout', headers={'Origin': 'https://evil.test'}).status_code == 403
         assert client.post('/logout').status_code == 204

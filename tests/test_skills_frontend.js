@@ -21,6 +21,7 @@ function harness(api) {
   const $ = id => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); };
   const el = (tag, className, text) => { const node = new Node(); node.tag = tag; node.textContent = text; return node; };
   const context = vm.createContext({$, el, api, notice: text => notices.push(text), document: {body: new Node()}});
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../frontend/chat-drag.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../frontend/skills.js'), 'utf8'), context);
   return {$, context, notices};
 }
@@ -71,12 +72,17 @@ test('selecting a skill does not exceed the prompt length limit', () => {
   assert.match(notices[0], /limite/);
 });
 
-test('data and skill controls are inside the chat workspace', () => {
+test('chat tool controls are inside the composer next to web search', () => {
   const html = fs.readFileSync(path.join(__dirname, '../frontend/index.html'), 'utf8');
-  const sidebar = html.slice(html.indexOf('<aside class="sidebar"'), html.indexOf('</aside>'));
-  const workspace = html.slice(html.indexOf('<div id="chat-page">'), html.indexOf('<section id="welcome"'));
+  const sidebar = html.slice(html.indexOf('<aside id="app-sidebar"'), html.indexOf('</aside>'));
+  const workspace = html.slice(html.indexOf('<form id="prompt-form"'), html.indexOf('</form>', html.indexOf('<form id="prompt-form"')));
   assert.doesNotMatch(sidebar, /id="toggle-preview"|id="toggle-skills"/);
   assert.match(workspace, /id="toggle-preview"/);
   assert.match(workspace, /id="toggle-skills"/);
+  assert.match(workspace, /id="toggle-imports"/);
+  assert.match(workspace, /id="toggle-queries"/);
+  assert.ok(workspace.indexOf('id="toggle-preview"') > workspace.indexOf('id="web-search-enabled"'));
+  const header = html.slice(html.indexOf('<section class="workspace-head"'), html.indexOf('<section id="welcome"'));
+  assert.doesNotMatch(header, /id="toggle-preview"|id="toggle-imports"|id="toggle-skills"|id="toggle-queries"/);
   assert.equal((html.match(/id="toggle-preview"/g) || []).length, 1);
 });

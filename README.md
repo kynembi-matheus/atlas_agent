@@ -12,6 +12,15 @@ Assistente de dados e relatórios em linguagem natural, com **FastAPI**, interfa
 
 O agente planeja o trabalho, consulta a documentação, descobre as fontes, executa ferramentas, calcula estatísticas e gera arquivos. Cada execução preserva o andamento, os datasets e a origem das consultas. Também responde a tarefas gerais que não precisam de banco.
 
+O plugin de internet oferece `search_web` (busca hospedada via OpenAI) e
+`read_web_page` (leitura de HTML/texto), disponíveis sem chave adicional. Ative o botão
+**Pesquisar na web**, no canto inferior esquerdo do campo de mensagem, para habilitar
+o acesso naquele pedido; a opção começa desligada.
+O agente recebe URLs, data da consulta e avisos de leitura parcial para citar as fontes.
+Exemplo: “Pesquise notícias recentes sobre cooperativismo de crédito e cite as fontes”.
+Reinicie com `uv run app.py` após atualizar o código. Veja os limites e a configuração
+em [operação do plugin de internet](docs/operations.md#plugin-de-internet).
+
 Em **Escolher suas skills**, há orientações para relatórios PDF/Excel, gráficos para apresentações, projeções VAR/VECM/ARCH/GARCH, busca de padrões, qualidade dos dados, análise comparativa e síntese executiva. As ferramentas fazem cálculos reais sobre datasets existentes, preservam a origem e não executam código arbitrário. Projeções incluem pressupostos, intervalos condicionais e backtest temporal; não garantem resultados futuros.
 
 **Importe seus dados** aceita XLSX, XLS e CSV com inferência de cabeçalhos e tipos por IA. Os datasets ficam em Parquet na pasta `temp`, isolados por sessão, sem inserir o conteúdo no SQLite. Conversas e relatórios que usam essas importações também são temporários. Nova conversa ou recarga da página apaga a sessão anterior; baixe os arquivos que quiser guardar.
@@ -20,6 +29,18 @@ Em **Queries**, salve, edite e execute consultas favoritas somente leitura. Digi
 no campo de conversa para buscar uma favorita e selecioná-la com Enter ou clique;
 inclua a pergunta e envie para o agente. Você também pode anexar um resultado já executado.
 As definições ficam salvas nesta instalação entre conversas e reinícios.
+
+Ao lado de **Anexar**, o atalho de agendamento parte do contexto da execução selecionada:
+pedido, fontes, filtros e opções. O agente também pode propor um agendamento no chat,
+para você revisar antes de ativar. A execução única é persistente e o resultado aparece em Sessões; a aplicação
+precisa estar ligada para executar no horário. Tarefas vencidas durante uma parada são
+processadas ao iniciar novamente, sem repetir execuções já registradas.
+
+O atalho **Subagentes** separa a equipe controlada pelo principal dos agentes criados
+por você, que têm conversa própria. Ambos recebem tarefas específicas e o contexto
+selecionado, com no máximo dois perfis no total por sessão. Auxiliares delegados
+compartilham o orçamento do principal; a conversa própria possui sua execução independente.
+[Operação e limites](docs/operations.md#agendamentos-e-subagentes).
 
 ## Executar
 
@@ -34,7 +55,8 @@ O `uv` instala as dependências do `uv.lock` automaticamente na primeira execuç
 O login ScdAuth por JWT é opcional (`SSO_ENABLED=true`), com recepção em `POST /login`
 por formulário, JSON ou Bearer, e sessão local por cookie. Configure a chave pública,
 target e issuer conforme [operação SSO](docs/operations.md#login-jwt-scdauth).
-O histórico continua compartilhado entre usuários autenticados.
+Histórico, datasets, arquivos e sessões temporárias são isolados por usuário autenticado.
+Registros antigos sem proprietário ficam preservados e ocultos até atribuição explícita.
 O bypass em `GET /login` exige `ENVIRONMENT=development` e execução com
 `uv run app.py --development` ao mesmo tempo.
 
@@ -142,3 +164,5 @@ A validação incluiu testes de SQL, limites, transformações, preservação de
 - [API e exemplos de integração](docs/api.md)
 - [Contrato original do pg_mcp](skills/pg_mcp/pg_mcp_docs.md)
 - [Skill de relatórios em PDF](skills/pdf-report/SKILL.md)
+
+Em **Agendar**, revise e confirme o plano no chat antes de configurar frequencia, dias, data e horario no popup. Acompanhe as tarefas na guia **Agendamentos** da sidebar.
