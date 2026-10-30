@@ -58,6 +58,15 @@ class Settings(BaseSettings):
     allowed_databases: list[str] = []
     data_dir: Path = ROOT / "data"
     docs_dir: Path = ROOT / "docs"
+    pghost: str = ""
+    pgport: int = Field(default=5432, ge=1, le=65535)
+    pgdatabase: str = ""
+    pguser: str = ""
+    pgpassword: SecretStr = SecretStr("")
+    pgsslmode: Literal['verify-full', 'verify-ca'] = 'verify-full'
+    pgsslrootcert: str = ""
+    usage_limit_6h: int = Field(default=2000000, ge=1)
+    usage_limit_week: int = Field(default=15000000, ge=1)
     max_agent_steps: int = Field(default=60, ge=1, le=60)
     max_query_rows: int = Field(default=5000, ge=1, le=50000)
     max_dataset_rows: int = Field(default=50000, ge=1, le=100000)

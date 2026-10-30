@@ -534,3 +534,12 @@ A aba Mídias e Arquivos lista os arquivos gerados acessíveis ao usuário, com 
 A biblioteca Sites reúne dashboards do perfil e páginas estáticas. Peça ao agente para criar um site; a ferramenta `create_site` publica título, descrição e seções textuais. O link é público: qualquer pessoa que o possua pode abrir a página. Não publique informações privadas. A biblioteca e a exclusão permanecem restritas ao perfil local. Excluir o site invalida seu link. Esta versão gera páginas textuais; HTML arbitrário, scripts e arquivos externos não são suportados. Dashboards mantêm seu funcionamento e acesso anteriores.
 
 A biblioteca usa o endereço `/sites`; dashboards abrem em `/sites/{id}`. Endereços antigos em `/dashboards` continuam funcionando.
+
+## Limites de uso de IA
+
+O perfil mostra tokens de entrada e saída por usuário nas últimas 6 horas e 7 dias. Configure `USAGE_LIMIT_6H` e `USAGE_LIMIT_WEEK` (padrões: 2000000 e 15000000). Novos pedidos são bloqueados ao atingir qualquer limite; execuções admitidas podem ultrapassá-lo. Respostas sem métricas são indicadas, sem estimativa. Dados temporários não são armazenados no registro de consumo. No modo local, o limite pertence ao perfil do navegador. Uso anterior à ativação não é contabilizado.
+
+
+### PostgreSQL para consumo de IA
+
+Configure `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER` e `PGPASSWORD` em `.config/.env` ou no ambiente do processo. O papel precisa de permissão para criar a tabela e o índice `atlas_agent_token_usage` e ler e inserir seus registros. Esta conexão é independente do MCP somente leitura e não herda a exceção TLS do MCP: `PGSSLMODE=verify-full` é o padrão; `verify-ca` também é aceito, com CA configurada no cliente PostgreSQL. No Windows, na ausência de `PGSSLROOTCERT`, o cliente utiliza as autoridades confiáveis dos repositórios ROOT e CA do Windows. Para usar uma CA específica, configure `PGSSLROOTCERT` com o caminho do arquivo PEM; o arquivo tem prioridade sobre os certificados do Windows. A inicialização falha se a configuração ou o banco estiverem indisponíveis. Os registros de consumo são armazenados exclusivamente no PostgreSQL; os demais dados continuam locais. A aplicação precisa de acesso de escrita ao banco configurado.

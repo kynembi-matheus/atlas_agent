@@ -23,6 +23,7 @@ dependencies = [
   "pyarrow>=20,<24",
   "xlrd>=2,<3",
   "wasi-python>=0.1.2",
+  "psycopg[binary]>=3.2,<4",
 ]
 
 [dependency-groups]

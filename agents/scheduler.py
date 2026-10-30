@@ -5,6 +5,7 @@ from contextlib import suppress
 from core.dashboard_identity import dashboard_owner
 from core.history_identity import history_owner
 from core.models import AgentError, RunRequest
+from repositories.token_usage import QuotaError
 from repositories.workspaces import Workspaces
 
 
@@ -44,6 +45,8 @@ class Scheduler:
                     waiter = asyncio.create_task(self.finish(item, job))
                     self.waiters.add(waiter)
                     waiter.add_done_callback(self.waiters.discard)
+            except QuotaError as exc:
+                self.repo.finish_schedule(item, 'failed', str(exc))
             except AgentError:
                 self.repo.finish_schedule(item, 'pending', 'Aguardando disponibilidade da fila ou configuração da IA.')
             finally:

@@ -8,13 +8,13 @@
   <meta name="description" content="Assistente — Agente Autônomo de Inteligência de Dados. Explore dados. Descubra padrões. Antecipe decisões.">
   <title>Assistente · Seu espaço de análise</title>
   <script src="/static/theme.js?v=1"></script>
-  <link rel="stylesheet" href="/static/style.css?v=83">
+  <link rel="stylesheet" href="/static/style.css?v=84">
   <script src="/static/markdown.js" defer></script>
   <script src="/static/greetings.js?v=5" defer></script>
   <script src="/static/app.js?v=38" defer></script>
   <script src="/static/workspaces.js?v=14" defer></script>
   <script src="/static/chat-drag.js?v=1" defer></script>
-  <script src="/static/profile.js?v=6" defer></script>
+  <script src="/static/profile.js?v=8" defer></script>
   <script src="/static/catalog.js?v=6" defer></script>
   <script src="/static/skills.js?v=3" defer></script>
   <script src="/static/imports.js?v=3" defer></script>
@@ -35,6 +35,11 @@
     <a id="open-media" class="history-more dashboard-nav" href="/midias" aria-label="Mídias e Arquivos" title="Mídias e Arquivos"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-attach"/></svg><span class="sidebar-link-label">Mídias e Arquivos</span></a>
     <a id="open-dashboards" class="history-more dashboard-nav" href="/sites" aria-label="Sites" title="Sites"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-dashboard"/></svg><span class="sidebar-link-label">Sites</span></a>
     <a id="open-schedules" class="history-more dashboard-nav" href="/agendamentos" aria-label="Agendamentos" title="Agendamentos"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-clock"/></svg><span class="sidebar-link-label">Agendamentos</span></a>
+    <button id="sidebar-usage" class="sidebar-usage" type="button" aria-haspopup="dialog" aria-controls="usage-dialog" aria-label="Ver uso de IA" hidden>
+      <span class="sidebar-usage-heading"><span>Uso de IA</span><strong id="sidebar-usage-percent">0%</strong></span>
+      <span class="sidebar-usage-track" aria-hidden="true"><span id="sidebar-usage-fill" class="sidebar-usage-fill"></span></span>
+      <span id="sidebar-usage-period" class="sidebar-usage-period"></span>
+    </button>
     <p class="brand-signature">Powered by AI</p>
   </aside>
   <main>
@@ -215,6 +220,7 @@
   <header class="preview-heading"><h2 id="usage-title">Uso da aplicação</h2><button id="close-usage" class="icon-button" type="button" aria-label="Fechar estatísticas de uso" autofocus><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-close"/></svg></button></header>
   <div class="usage-dialog-body">
     <p id="profile-scope" class="muted">Suas sessões e seus arquivos são privados. Consultas favoritas são compartilhadas nesta instalação.</p>
+    <section id="token-usage" aria-label="Uso de IA" hidden><h3>Uso de IA</h3><p id="token-usage-six-hours"></p><progress id="token-progress-six-hours" max="100" value="0"></progress><p id="token-usage-week"></p><progress id="token-progress-week" max="100" value="0"></progress><p id="token-usage-note"></p></section>
     <dl id="profile-stats" class="profile-stats" hidden>
       <div><dt>Sessões</dt><dd id="usage-conversations">—</dd></div>
       <div><dt>Pedidos enviados</dt><dd id="usage-requests">—</dd></div>

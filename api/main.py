@@ -38,6 +38,7 @@ from integrations.sso import SSO, Identity
 from integrations.temporary_imports import infer_schema, normalize_tables, read_tables
 from repositories.auth_sessions import COOKIE, AuthSessions
 from repositories.dashboards import LIMIT, Dashboards
+from repositories.token_usage import TokenUsage, MeteredClient
 from repositories.local_store import Store
 from repositories.workspaces import Workspaces
 from tools.dashboards import Dashboard, RefreshStore, refresh
@@ -68,6 +69,9 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
         store.recover()
         store.purge_expired_artifacts()
         llm = client if client is not None else make_client(settings)
+        meter = TokenUsage(settings)
+        llm = MeteredClient(llm, meter)
+        app.state.token_usage = meter
         pg = mcp if mcp is not None else PgMCP(settings)
         app.state.store, app.state.mcp = store, pg
         app.state.manager = RunManager(Agent(settings, store, pg, llm))
@@ -96,6 +100,7 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
             await app.state.imports.close()
             await app.state.manager.close()
             await app.state.scheduler.close()
+            meter.close()
             if client is None:
                 await llm.close()
 
@@ -194,7 +199,7 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
     @router.get('/profile', response_model=LocalProfile, tags=['Perfil'])
     async def local_profile(request: Request, session: Session):
         identity = getattr(request.state, 'identity', None)
-        return LocalProfile(usage=scoped_store(session).usage_statistics(), **(
+        return LocalProfile(usage=scoped_store(session).usage_statistics(), token_usage=app.state.token_usage.summary(), **(
             {'name': identity.name, 'identity': identity.email,
              'profile': identity.perfil, 'role': identity.cargo, 'function': identity.funcao,
              'department': identity.departamento, 'unit_number': identity.numero_pa,

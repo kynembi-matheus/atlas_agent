@@ -56,6 +56,7 @@ class LocalProfile(BaseModel):
     auth_mode: Literal['local', 'sso', 'development'] = 'local'
     scope: str = "Suas sessões e seus arquivos são privados. Consultas favoritas são compartilhadas nesta instalação."
     usage: UsageStatistics
+    token_usage: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
 
 class AgentError(Exception):

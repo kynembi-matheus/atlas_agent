@@ -35,9 +35,30 @@
     document.documentElement.dataset.theme = event.newValue === 'dark' ? 'dark' : 'light';
     syncTheme();
   });
+  function updateSidebarUsage(usage) {
+    const windows = [['six_hours', '6 horas'], ['week', '7 dias']]
+      .map(([key, label]) => ({label, ...usage?.[key]}))
+      .filter(item => Number.isFinite(item.tokens) && Number.isFinite(item.limit) && item.limit > 0);
+    const button = $('sidebar-usage');
+    if (!windows.length) { button.hidden = true; return; }
+    const highest = windows.reduce((a, b) => a.tokens / a.limit >= b.tokens / b.limit ? a : b);
+    const percent = Math.min(100, Math.round(highest.tokens / highest.limit * 100));
+    $('sidebar-usage-percent').textContent = `${percent}%`;
+    $('sidebar-usage-period').textContent = `Maior uso: ${highest.label}`;
+    $('sidebar-usage-fill').style.width = `${percent}%`;
+    button.setAttribute('aria-label', `Uso de IA: ${percent}% do limite de ${highest.label}. Abrir detalhes.`);
+    button.hidden = false;
+  }
+  async function refreshSidebarUsage() {
+    try {
+      const profile = await (await api('/api/profile')).json();
+      updateSidebarUsage(profile.token_usage);
+    } catch (_) { /* Preserve the last known value if the refresh fails. */ }
+  }
   async function loadProfile({background = false} = {}) {
     const current = ++revision;
     $('profile-stats').hidden = true;
+    $('token-usage').hidden = true;
     $('profile-body').setAttribute('aria-busy', 'true');
     $('profile-feedback').textContent = 'Atualizando informações do perfil…';
     try {
@@ -66,6 +87,17 @@
       for (const key of ['conversations', 'requests', 'completed', 'artifacts']) {
         $(`usage-${key}`).textContent = profile.usage[key].toLocaleString('pt-BR');
       }
+      const usage = profile.token_usage || {};
+      updateSidebarUsage(usage);
+      for (const [key, id, label] of [['six_hours', 'six-hours', 'Últimas 6 horas'], ['week', 'week', 'Últimos 7 dias']]) {
+        const item = usage[key];
+        if (!item) continue;
+        const release = item.available_at ? ` · liberação estimada: ${new Date(item.available_at).toLocaleString('pt-BR')}` : '';
+        $(`token-usage-${id}`).textContent = `${label}: ${item.tokens.toLocaleString('pt-BR')} de ${item.limit.toLocaleString('pt-BR')} tokens${release}`;
+        $(`token-progress-${id}`).value = Math.min(100, item.tokens / item.limit * 100);
+      }
+      $('token-usage-note').textContent = (usage.week?.unavailable || 0) ? `${usage.week.unavailable} chamada(s) sem dados de consumo do provedor.` : 'O consumo anterior à ativação não está incluído.';
+      $('token-usage').hidden = !usage.week;
       $('profile-stats').hidden = false;
       $('profile-feedback').textContent = '';
     } catch (_) {
@@ -82,6 +114,11 @@
     syncTheme();
     loadProfile();
   });
+  $('sidebar-usage').addEventListener('click', () => {
+    $('usage-dialog').showModal();
+    loadProfile({background: true});
+  });
+  window.setInterval?.(() => { if (!document.hidden) refreshSidebarUsage(); }, 60000);
   $('open-usage').addEventListener('click', () => $('usage-dialog').showModal());
   $('close-usage').addEventListener('click', () => $('usage-dialog').close());
   $('close-profile').addEventListener('click', () => dialog.close());

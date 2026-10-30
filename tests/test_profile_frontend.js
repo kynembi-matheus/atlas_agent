@@ -8,7 +8,7 @@ const path = require('node:path');
 function setup({saved, blocked = false, api, fetch: fetcher} = {}) {
   const nodes = new Map();
   function $(id) {
-    if (!nodes.has(id)) nodes.set(id, {hidden: false, listeners: {}, attributes: {},
+    if (!nodes.has(id)) nodes.set(id, {hidden: false, listeners: {}, attributes: {}, style: {},
       addEventListener(event, callback) { this.listeners[event] = callback; },
       setAttribute(key, value) { this.attributes[key] = value; },
       removeAttribute(key) { delete this[key]; },
@@ -218,4 +218,21 @@ test('usage opens in a separate dialog and returns to the profile', async () => 
   $('close-usage').listeners.click();
   assert.equal($('usage-dialog').open, false);
   assert.equal($('profile-dialog').open, true);
+});
+
+test('usage meter shows the highest quota and opens usage details', async () => {
+  const {$} = setup({api: async () => ({json: async () => ({
+    name: 'Ana', identity: 'local', usage: {conversations: 0, requests: 0, completed: 0, artifacts: 0},
+    token_usage: {six_hours: {tokens: 75000, limit: 100000}, week: {tokens: 100000, limit: 1000000, unavailable: 0}}
+  })})});
+  await settle();
+  assert.equal($('sidebar-usage').hidden, false);
+  assert.equal($('sidebar-usage-percent').textContent, '75%');
+  assert.equal($('sidebar-usage-period').textContent, 'Maior uso: 6 horas');
+  assert.equal($('sidebar-usage-fill').style.width, '75%');
+  assert.match($('token-usage-six-hours').textContent, /\u00daltimas 6 horas/);
+  assert.equal($('token-usage-note').textContent, 'O consumo anterior \u00e0 ativa\u00e7\u00e3o n\u00e3o est\u00e1 inclu\u00eddo.');
+  $('sidebar-usage').listeners.click();
+  assert.equal($('usage-dialog').open, true);
+  await settle();
 });

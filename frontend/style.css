@@ -813,3 +813,21 @@ button:disabled {cursor:not-allowed}
 
 /* O cabeçalho e o chat compartilham a altura da tela. */
 @media(min-width:761px){main:has(> .workspace > #chat-page:not([hidden])) {display:flex;flex-direction:column;min-height:100dvh} .workspace:has(> #chat-page:not([hidden])) {flex:1;min-height:0} .chat-meta {padding-top:8px}}
+
+/* Compact usage meter in the lower sidebar. */
+.sidebar .sidebar-usage {display:flex;flex-direction:column;gap:7px;align-self:center;width:100%;margin-top:auto;padding:11px 12px;border:1px solid #b8c7ca;border-radius:10px;background:transparent;color:inherit;text-align:left;cursor:pointer}
+.sidebar .sidebar-usage[hidden] {display:none}
+.sidebar .sidebar-usage:hover {background:#d9e3e5}
+.sidebar-usage-heading {display:flex;justify-content:space-between;gap:8px;width:100%;font-size:12px;font-weight:600}
+.sidebar-usage-track {display:block;width:100%;height:7px;border-radius:99px;background:#c4d1d3;overflow:hidden}
+.sidebar-usage-fill {display:block;width:0;height:100%;border-radius:inherit;background:#b65d20;transition:width .2s}
+.sidebar-usage-period {font-size:11px;color:#52647a}
+.sidebar .sidebar-usage + .brand-signature {margin-top:0}
+[data-theme="dark"] .sidebar .sidebar-usage {border-color:#435a75}
+[data-theme="dark"] .sidebar .sidebar-usage:hover {background:#1d3050}
+[data-theme="dark"] .sidebar-usage-track {background:#344967}
+[data-theme="dark"] .sidebar-usage-fill {background:#5ee0d0}
+[data-theme="dark"] .sidebar-usage-period {color:#a8b9d3}
+@media(min-width:761px){[data-sidebar-collapsed="true"] .sidebar .sidebar-usage {width:48px;padding:8px 4px;align-items:center}[data-sidebar-collapsed="true"] .sidebar-usage-heading {justify-content:center}[data-sidebar-collapsed="true"] .sidebar-usage-heading span,[data-sidebar-collapsed="true"] .sidebar-usage-period {display:none}}
+@media(max-width:760px){.sidebar .sidebar-usage {grid-column:1/-1;max-width:260px;margin:8px auto 0}}
+@media(prefers-reduced-motion:reduce){.sidebar-usage-fill {transition:none}}

@@ -31,3 +31,23 @@ def client_owner_scope():
         finally:
             history_owner.reset(token)
     return scope
+
+
+@pytest.fixture(autouse=True)
+def fake_usage_postgres(monkeypatch):
+    """Keep usage data in memory; tests never connect to PostgreSQL."""
+    import repositories.token_usage as module
+
+    class FakeUsageStore:
+        def __init__(self, settings):
+            self.records = []
+
+        def recent(self, owner, cutoff):
+            return sorted((timestamp, input_tokens, output_tokens)
+                          for row_owner, timestamp, input_tokens, output_tokens in self.records
+                          if row_owner == owner and timestamp > cutoff)
+
+        def record(self, owner, timestamp, input_tokens, output_tokens):
+            self.records.append((owner, timestamp, input_tokens, output_tokens))
+
+    monkeypatch.setattr(module, 'PostgresUsageStore', FakeUsageStore)

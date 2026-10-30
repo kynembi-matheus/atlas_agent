@@ -11,6 +11,7 @@ from openai import APIError, AsyncOpenAI
 
 from agents.subagents import CONTROL_TOOLS, StepBudget, SubagentControl
 from core.config import Settings
+from repositories.token_usage import admitted
 from core.history_identity import history_owner
 from core.models import AgentError, Run, RunRequest
 from core.workspace_models import DelegateBatch, ExecutionOptions
@@ -289,6 +290,9 @@ class RunManager:
 
     def submit(self, request: RunRequest, *, run_id: str | None = None, context_snapshot=None,
                profile=None) -> Run:
+        meter = getattr(self.agent.client, "_meter", None)
+        if meter:
+            meter.check()
         if not self.agent.settings.llm_ready:
             raise AgentError("Configure OPENAI_API_KEY ou OPENAI_KEY em .config/.env ou .env.")
         if len(self.tasks) >= self.agent.settings.max_pending_runs:
@@ -328,6 +332,7 @@ class RunManager:
         return run
 
     async def work(self, run: Run, request: RunRequest, *, profile=None):
+        usage_token = admitted.set(True)
         try:
             async with self.semaphore:
                 run.status = "running"
@@ -358,6 +363,7 @@ class RunManager:
             # Não registra payloads, SQL, respostas ou mensagens de exceção com possíveis segredos.
             logger.error("Run error run=%s type=%s", run.id, type(exc).__name__)
         finally:
+            admitted.reset(usage_token)
             self.store.save_run(run)
             if profile:
                 Workspaces(self.store).save_subagent({**profile, 'status': run.status,

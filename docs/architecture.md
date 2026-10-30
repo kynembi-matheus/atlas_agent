@@ -481,3 +481,9 @@ URLs de API e navegação do navegador; as rotas internas continuam na raiz da a
 ## Sites estáticos
 
 `tools/sites.py` valida o conteúdo declarativo e armazena páginas na tabela `sites`, por perfil. Um identificador aleatório serve como link público; o HTML escapa os textos e é servido com CSP sandbox, sem scripts, formulários ou recursos externos. A biblioteca consulta sites e dashboards separadamente; os dashboards existentes não são migrados. A skill `sites/SKILL.md` orienta ambas as ferramentas.
+
+## Consumo de tokens
+
+O cliente Responses é envolvido por um medidor compartilhado pelo agente, importações e planejamento. Cada resposta registra apenas identidade, horário e tokens informados no PostgreSQL persistente; respostas sem métricas são registradas como indisponíveis. O perfil agrega janelas móveis de 6 horas e 7 dias. A admissão de execuções verifica as cotas; o contexto da execução permite que chamadas e subagentes já admitidos terminem. Chamadas independentes verificam antes de executar. O processo suporta um único worker; execuções concorrentes admitidas antes de se conhecer o consumo podem ultrapassar as cotas.
+
+O armazenamento de tokens usa conexão PostgreSQL própria, com verificação TLS, independente do MCP. A aplicação não usa SQLite para persistir ou migrar registros de consumo.
