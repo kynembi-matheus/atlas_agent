@@ -47,7 +47,7 @@ test('opening subagents reserves a session and enforces the two-profile limit in
   const h = harness(); await h.context.openWorkspaceDialog('subagents');
   assert.equal(h.state.conversationId, 'workspace');
   assert.equal(h.$('subagents-dialog').open, true);
-  assert.equal(h.$('subagents-count').textContent, '2 de 2 subagentes nesta sessão');
+  assert.equal(h.$('subagents-count').textContent, '2 de 2 agentes nesta sessão');
   assert.equal(h.timers.size, 1);
   h.context.resetWorkspaceUi(); assert.equal(h.timers.size, 0);
 });

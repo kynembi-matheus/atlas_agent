@@ -87,7 +87,11 @@ async function loadSchedules() {
     const data = await (await api('/api/schedules')).json();
     if ((typeof appPath === 'function' ? appPath() : window.location.pathname) !== '/agendamentos') return;
     $('schedule-list').replaceChildren();
-    if (!data.schedules.length) $('schedule-list').append(el('p', 'muted', 'Nenhuma tarefa agendada.'));
+    if (!data.schedules.length) {
+      const empty = el('div', 'dashboard-empty');
+      empty.append(el('h2', '', 'Nada agendado por enquanto'), el('p', 'muted', 'Para começar, escreva um pedido no chat e escolha Agendar.'));
+      $('schedule-list').append(empty);
+    }
     for (const item of data.schedules) {
       const card = el('article', 'workspace-card');
       const heading = el('div', 'workspace-card-heading'); heading.append(el('strong', '', item.title), workspaceBadge(item.status));
@@ -121,12 +125,12 @@ async function loadSubagents() {
   try {
     const data = await (await api(`/api/workspaces/${id}/subagents`)).json();
     if (revision !== workspaceUi.revision || !$('subagents-dialog').open) return;
-    $('subagents-count').textContent = `${data.subagents.length} de 2 subagentes nesta sessão`;
+    $('subagents-count').textContent = `${data.subagents.length} de 2 agentes nesta sessão`;
     const signature = JSON.stringify(data.subagents);
     if ($('subagents-list').dataset.signature === signature) return;
     $('subagents-list').dataset.signature = signature;
     $('subagents-list').replaceChildren();
-    if (!data.subagents.length) $('subagents-list').append(el('p', 'muted', 'Nenhum subagente nesta sessão.'));
+    if (!data.subagents.length) $('subagents-list').append(el('p', 'team-empty', 'Nenhum agente nesta sessão. Delegue uma tarefa no chat para começar.'));
     for (const [index, item] of data.subagents.entries()) {
       const card = el('button', 'workspace-card agent-card'); card.type = 'button';
       card.setAttribute('data-agent-color', index === 0 ? 'teal' : 'violet');

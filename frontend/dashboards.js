@@ -14,7 +14,7 @@ async function loadDashboards() {
     $('dashboard-library').replaceChildren();
     for (const item of data.dashboards) {
       const card = el('article', 'dashboard-card');
-      card.append(el('span', 'side-label', 'DASHBOARD HTML'), el('h2', '', item.title), el('p', 'muted', item.description));
+      card.append(el('span', 'side-label', 'DASHBOARD'), el('h2', '', item.title), el('p', 'muted', item.description));
       const actions = el('div', 'dashboard-actions');
       const open = el('button', 'secondary', 'Abrir dashboard'); open.type = 'button';
       open.addEventListener('click', () => openDashboard(item));
@@ -109,7 +109,7 @@ $('open-dashboards').addEventListener('click', event => { event.preventDefault()
 $('dashboard-back').addEventListener('click', event => { event.preventDefault(); navigatePage('/'); });
 $('dashboard-library-back').addEventListener('click', event => { event.preventDefault(); navigatePage('/dashboards'); });
 $('create-dashboard').addEventListener('click', () => {
-  navigatePage('/'); $('output-format').value = 'dashboard';
+  navigatePage('/'); $('output-dashboard').checked = true;
   if (!$('prompt').value.trim()) $('prompt').value = 'Crie um dashboard visual com gráficos, cards de indicadores e tabelas interativas dos dados selecionados. Use pouco texto.';
   $('prompt').focus();
 });

@@ -62,6 +62,15 @@ function libraryHarness(api) {
   return {nodes, timers, context, location, listeners};
 }
 
+test('creating a dashboard selects its output mode and preserves an existing draft', () => {
+  const h = libraryHarness(async () => ({json: async () => ({dashboards: [], limit: 4})}));
+  h.context.$('prompt').value = 'Minha análise';
+  h.nodes.get('create-dashboard').click();
+  assert.equal(h.location.pathname, '/');
+  assert.equal(h.nodes.get('output-dashboard').checked, true);
+  assert.equal(h.nodes.get('prompt').value, 'Minha análise');
+});
+
 test('filters accept only the current frame and persist across refresh and clear', async () => {
   const requests = [];
   const h = libraryHarness(async url => {
