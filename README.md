@@ -21,9 +21,9 @@ Exemplo: “Pesquise notícias recentes sobre cooperativismo de crédito e cite 
 Reinicie com `uv run app.py` após atualizar o código. Veja os limites e a configuração
 em [operação do plugin de internet](docs/operations.md#plugin-de-internet).
 
-Em **Escolher suas skills**, há orientações para relatórios PDF/Excel, gráficos para apresentações, projeções VAR/VECM/ARCH/GARCH, busca de padrões, qualidade dos dados, análise comparativa e síntese executiva. As ferramentas fazem cálculos reais sobre datasets existentes, preservam a origem e não executam código arbitrário. Projeções incluem pressupostos, intervalos condicionais e backtest temporal; não garantem resultados futuros.
+Em **Escolher suas skills**, há orientações para relatórios PDF/Excel, gráficos para apresentações, projeções VAR/VECM/ARCH/GARCH, busca de padrões, qualidade dos dados, análise comparativa e síntese executiva. As ferramentas fazem cálculos reais sobre datasets existentes, preservam a origem e podem usar Python isolado no Work. Projeções incluem pressupostos, intervalos condicionais e backtest temporal; não garantem resultados futuros.
 
-**Importe seus dados** aceita XLSX, XLS e CSV com inferência de cabeçalhos e tipos por IA. Os datasets ficam em Parquet na pasta `temp`, isolados por sessão, sem inserir o conteúdo no SQLite. Conversas e relatórios que usam essas importações também são temporários. Nova conversa ou recarga da página apaga a sessão anterior; baixe os arquivos que quiser guardar.
+**Importe seus dados** aceita XLSX, XLS e CSV com inferência de cabeçalhos e tipos por IA. Os datasets ficam em Parquet na pasta `temp`, isolados por sessão, sem inserir o conteúdo no SQLite. Conversas e relatórios que usam essas importações também são temporários. A recarga da página preserva a sessão temporária enquanto ela estiver ativa. Nova conversa, expiração ou reinício do serviço apagam os dados temporários; baixe os arquivos que quiser guardar.
 
 Em **Queries**, salve, edite e execute consultas favoritas somente leitura. Digite **?**
 no campo de conversa para buscar uma favorita e selecioná-la com Enter ou clique;
@@ -122,7 +122,7 @@ Exemplos:
 | Interface | Responsiva, navegação por teclado, rótulos e avisos de andamento |
 | API | Contratos validados, documentação OpenAPI e autenticação opcional por Bearer |
 
-O agente é extensível para novos relatórios sobre as fontes disponíveis. Um pedido depende da existência dos dados, da definição das métricas e das permissões do MCP. Ele não executa código arbitrário, não altera o PostgreSQL e não possui acesso irrestrito a arquivos ou serviços externos.
+O agente é extensível para novos relatórios sobre as fontes disponíveis. Um pedido depende da existência dos dados, da definição das métricas e das permissões do MCP. O Work executa Python isolado em WASI; o agente não altera o PostgreSQL e não possui acesso irrestrito a arquivos ou serviços externos.
 
 ## Estrutura
 
@@ -166,3 +166,6 @@ A validação incluiu testes de SQL, limites, transformações, preservação de
 - [Skill de relatórios em PDF](skills/pdf-report/SKILL.md)
 
 Em **Agendar**, revise e confirme o plano no chat antes de configurar frequencia, dias, data e horario no popup. Acompanhe as tarefas na guia **Agendamentos** da sidebar.
+
+
+O Work usa `wasi-python` e Wasmtime, instalados por `uv sync`; não requer administrador. Cada chamada recebe apenas o código e os dados informados na ferramenta, sem diretórios do servidor, variáveis do ambiente ou rede. A primeira execução pode demorar enquanto o runtime é compilado. Cada chamada usa uma instância nova. Arquivos criados diretamente em `/output` são oferecidos para download após execução bem-sucedida: até 10 arquivos e 200 MB no total, nos formatos CSV, XLSX, PDF, JSON, TXT, PNG, JPG, ZIP, DOCX, PPTX ou Markdown.

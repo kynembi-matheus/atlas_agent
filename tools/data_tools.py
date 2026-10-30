@@ -1,5 +1,6 @@
-"""Ferramentas declarativas: o modelo nunca executa Python ou shell arbitrário."""
+"""Ferramentas declarativas: Python isolado em WASI."""
 import asyncio
+import hashlib
 import io
 import json
 import math
@@ -43,6 +44,12 @@ CATALOG_DATABASES = ("synap", "deskflow", "cora", "crm_cob", "hub", "starcoop")
 
 class Arguments(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+class WorkPython(Arguments):
+    """Execute Python isolado com WASI para cálculos; use print para mostrar resultados. Sem rede ou arquivos do servidor. stdin contém somente dados fornecidos explicitamente. Para gerar downloads, grave arquivos em /output, usando csv, xlsx, pdf, json, txt, png, jpg, zip, md, docx ou pptx."""
+    code: str = Field(min_length=1, max_length=16000)
+    stdin: str = Field(default="", max_length=100000)
 
 
 class Plan(Arguments):
@@ -220,6 +227,7 @@ SCHEMAS = {
     'delegate_to_subagent': DelegateTask, 'cancel_subagent': SubagentId, 'schedule_task': ScheduleTask,
     'delegate_to_subagents': DelegateBatch,
     "set_conversation_title": ConversationTitle,
+    "work_python": WorkPython,
     "search_web": SearchWeb, "read_web_page": ReadWebPage,
     "create_dashboard": Dashboard,
     "list_favorite_queries": ListFavoriteQueries, "run_favorite_query": RunFavoriteQuery,
@@ -305,6 +313,41 @@ def safe_spreadsheet(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 class Toolbox:
+    async def work_python(self, args: WorkPython):
+        from wasi_python import Mount, run as run_wasi
+        from tools.work_files import WorkFiles
+        files = WorkFiles()
+        try:
+            result = await asyncio.to_thread(run_wasi, ["-c", args.code], stdin=args.stdin.encode("utf-8"),
+                root=False, grants=(), mounts=(Mount(files, "/output", writable=True),), env={}, deadline_s=60, memory_bytes=1073741824,
+                output_bytes=16000, fuel=40000000000)
+        except Exception:
+            raise AgentError("Não foi possível iniciar o ambiente Work.") from None
+        artifacts = []
+        file_error = bool(result.files and (result.files.refused_total or result.files.faults))
+        if result.exit_code == 0 and not result.trapped and not file_error and self is not None and self.run:
+            for path, content in sorted(files.files.items()):
+                filename = Path(path).name
+                extension = Path(filename).suffix.lower().lstrip(".")
+                artifact = self.store.save_artifact(self.run.id, filename, extension, content)
+                if hasattr(self.store, "artifact_path"):
+                    saved_path = self.store.artifact_path(artifact)
+                else:
+                    saved_path = self.store.artifacts_dir / artifact["filename"]
+                try:
+                    with saved_path.open("rb") as saved:
+                        actual = hashlib.file_digest(saved, "sha256").digest()
+                    if actual != hashlib.sha256(content).digest():
+                        raise OSError("artifact checksum mismatch")
+                except OSError:
+                    raise AgentError("Falha ao verificar a integridade do arquivo Work; o download não foi disponibilizado.") from None
+                self.run.artifacts.append(artifact)
+                artifacts.append(artifact)
+        return {"file_error": file_error, "artifacts": artifacts, "stdout": result.stdout.decode("utf-8", errors="replace"),
+                "stderr": result.stderr.decode("utf-8", errors="replace"),
+                "exit_code": result.exit_code, "trapped": result.trapped,
+                "truncated": result.truncated}
+
     def workspace(self):
         if self.is_subagent or self.workspace_control is None:
             raise AgentError('Esta capacidade é controlada exclusivamente pelo agente principal.')

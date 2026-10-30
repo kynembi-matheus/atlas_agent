@@ -229,6 +229,12 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
         except TimeoutError:
             raise HTTPException(504, 'Tempo esgotado ao executar a consulta.') from None
 
+    @router.get('/import-sessions/current', tags=['Importação temporária'])
+    async def current_import_session(session: Session):
+        if session is None:
+            raise HTTPException(404, "Sessão temporária não encontrada.")
+        return {'session_id': session.id}
+
     @router.post('/import-sessions', tags=['Importação temporária'], status_code=201)
     async def new_import_session(x_data_session: Annotated[UUID | None, Header()] = None):
         if x_data_session:
@@ -445,6 +451,10 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
     async def list_runs(session: Session):
         return scoped_store(session).list_runs()
 
+    @router.get("/conversations/{conversation_id}/runs", response_model=list[Run], tags=["Execuções"])
+    async def conversation_runs(conversation_id: UUID, session: Session):
+        return scoped_store(session).conversation(str(conversation_id), limit=None)
+
     @router.get("/conversations", response_model=list[Run], tags=["Execuções"])
     async def list_conversations(session: Session, limit: Annotated[int | None, Query(ge=1)] = None):
         return scoped_store(session).list_conversations(limit)
@@ -500,7 +510,7 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
         media = {"pdf": "application/pdf", "html": "text/html", "md": "text/markdown", "csv": "text/csv",
                  "json": "application/json", "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
         return FileResponse(path, filename=f"relatorio-{item['id'][:8]}.{item['format']}",
-                            media_type=media[item["format"]])
+                            media_type=media.get(item["format"], "application/octet-stream"))
 
     app.include_router(router)
     app.include_router(workspace_router(app, authorize, import_session))

@@ -67,6 +67,7 @@ class ContextualDelegateRequest(DelegateTask):
 
 
 class ExecutionOptions(BaseModel):
+    work_enabled: bool = False
     web_search_enabled: bool = False
     output_format: Literal['auto', 'dashboard'] = 'auto'
     dataset_ids: list[UUID] = Field(default_factory=list, max_length=10)

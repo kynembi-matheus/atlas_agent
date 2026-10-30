@@ -111,7 +111,7 @@ intervalos ou diagnósticos. Não troque o modelo solicitado silenciosamente qua
 Para investigar padrões, leia hidden_patterns/SKILL.md e use find_patterns; associação não prova causalidade.
 Os downloads são exibidos automaticamente pela interface.
 Pode ajudar também com tarefas gerais, planejamento e explicações, sem consultar banco se
-não for necessário. Não possui shell, Python arbitrário, acesso livre ao disco ou escrita no banco.
+não for necessário. Use work_python para cálculos em Python isolado quando necessário. Não possui shell, acesso livre ao disco ou escrita no banco.
 Quando disponíveis, use search_web para pesquisar na internet e read_web_page para ler URLs
 públicas. Para informações atuais, confirme as páginas e cite links das fontes e data de consulta.
 Resultados de busca não confirmam fatos. Respeite partial, download_truncated e next_offset;
@@ -218,6 +218,8 @@ class Agent:
                 )
             self.event(run, "progress", f"Etapa {step + 1}: analisando o pedido e as evidências.")
             tool_definitions = definitions(internet_enabled=web_enabled)
+            if request.work_enabled:
+                instructions += "\nO usuário ativou o Work. Avalie se Python é necessário ou útil para o pedido; use work_python quando for. Para entregar arquivos gerados, grave-os em /output e informe os downloads retornados."
             if restricted:
                 tool_definitions = [tool for tool in tool_definitions if tool['name'] not in CONTROL_TOOLS]
             if toolbox.web_search_error:

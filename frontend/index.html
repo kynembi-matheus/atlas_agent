@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="/static/style.css?v=55">
   <script src="/static/markdown.js" defer></script>
   <script src="/static/greetings.js?v=2" defer></script>
-  <script src="/static/app.js?v=25" defer></script>
+  <script src="/static/app.js?v=27" defer></script>
   <script src="/static/workspaces.js?v=13" defer></script>
   <script src="/static/chat-drag.js?v=1" defer></script>
   <script src="/static/profile.js?v=4" defer></script>
@@ -98,6 +98,7 @@
         </div>
       </section>
       <section id="conversation" class="conversation" aria-label="Conversa" hidden>
+        <div id="previous-messages"></div>
         <div class="message-user"><span class="message-label">VOCÊ</span><p id="user-message"></p></div>
         <div class="agent-message"><div class="agent-heading"><span class="mini-mark" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-sparkles"/></svg></span><strong>Atlas Agent</strong><span id="run-status" class="status-pill" role="status" aria-live="polite" aria-atomic="true"></span><button id="cancel-run" class="text-button danger" type="button" hidden><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-cancelled"/></svg>Cancelar execução</button></div>
           <div id="run-events" class="events" aria-live="polite" aria-label="Andamento da execução"></div>
@@ -124,6 +125,7 @@
           <div class="composer-options">
             <div class="composer-tools">
               <button id="web-search-enabled" class="web-search-toggle" type="button" aria-pressed="false" title="Permitir pesquisa e leitura de páginas públicas neste pedido."><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-globe"/></svg><span>Pesquisar na web</span><span class="web-search-indicator" aria-hidden="true"></span></button>
+              <button id="work-enabled" class="web-search-toggle" type="button" aria-pressed="false" title="Solicitar uso do Work. O agente também pode usá-lo quando necessário."><span>Work</span><span class="web-search-indicator" aria-hidden="true"></span></button>
               <nav class="workspace-choices" aria-label="Ferramentas do chat">
           <button id="toggle-preview" class="choice-button" type="button" aria-controls="data-preview" aria-expanded="false"><span aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-database"/></svg></span> Dados</button>
           <button id="toggle-imports" class="choice-button" type="button" aria-controls="imports-panel" aria-expanded="false"><span aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-upload"/></svg></span> Importar</button>

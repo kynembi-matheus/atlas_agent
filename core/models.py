@@ -9,6 +9,7 @@ from core.workspace_models import DelegateTask, ExecutionOptions
 class RunRequest(BaseModel):
     subagent_tasks: list[DelegateTask] = Field(default_factory=list, max_length=2)
     web_search_enabled: bool = False
+    work_enabled: bool = False
     output_format: Literal['auto', 'dashboard'] = 'auto'
     prompt: str = Field(min_length=1, max_length=16000)
     conversation_id: UUID | None = None

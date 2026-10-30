@@ -22,9 +22,20 @@ async function api(path, options = {}) {
 }
 async function ensureDataSession() {
   if (state.sessionId) return;
-  if (!state.sessionPromise) state.sessionPromise = rotateDataSession();
+  if (!state.sessionPromise) state.sessionPromise = restoreDataSession();
   try { await state.sessionPromise; }
   finally { state.sessionPromise = null; }
+}
+async function restoreDataSession() {
+  let previous = null;
+  try { previous = sessionStorage.getItem('scd-import-session'); } catch (_) {}
+  if (previous) {
+    const response = await fetch(appUrl('/api/import-sessions/current'), {headers: {'X-Data-Session': previous}});
+    if (response.ok) { state.sessionId = previous; return; }
+    if (response.status !== 410 && response.status !== 404) throw new Error('N\u00e3o foi poss\u00edvel restaurar a sess\u00e3o.');
+    try { sessionStorage.removeItem('scd-import-session'); } catch (_) {}
+  }
+  await rotateDataSession();
 }
 async function rotateDataSession() {
   const headers = new Headers();
@@ -348,11 +359,44 @@ async function poll() {
   } catch (error) { if (state.runId === id) notice(error.message); }
   finally { state.polling = false; }
 }
+async function loadConversation(run) {
+  const id = run.conversation_id;
+  try {
+    const runs = await (await api(`/api/conversations/${id}/runs`)).json();
+    if (state.conversationId !== id || state.runId !== run.id) return;
+    const container = $('previous-messages');
+    container.replaceChildren();
+    for (const previous of runs) {
+      if (previous.id === run.id) break;
+      const user = el('div', 'message-user');
+      user.append(el('span', 'message-label', 'VOC\u00ca'), el('p', '', previous.prompt));
+      const assistant = el('div', 'agent-message');
+      assistant.append(el('span', 'message-label', 'ATLAS'));
+      const answer = el('div', 'answer'); renderMarkdown(answer, previous.answer || previous.error || ''); assistant.append(answer);
+      for (const artifact of previous.artifacts || []) {
+        if (artifact.format === 'dashboard') { const link = el('a', 'artifact', artifact.title); link.href = appUrl(artifact.url); assistant.append(link); continue; }
+        const link = el('button', 'artifact', artifact.title); link.type = 'button';
+        link.addEventListener('click', async () => {
+          try {
+            const blob = await (await api(artifact.url)).blob(); const url = URL.createObjectURL(blob);
+            const a = el('a'); a.href = url; a.download = artifact.title; document.body.append(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+          } catch (error) { notice(error.message); }
+        });
+        assistant.append(link);
+      }
+      container.append(user, assistant);
+    }
+  } catch (error) { if (state.conversationId === id) notice(error.message); }
+}
 function selectRun(run) {
   if (typeof resetWorkspaceUi === 'function') resetWorkspaceUi();
   navigatePage('/');
-  stopPolling(); state.runId = run.id; state.conversationId = run.conversation_id;
-  render(run); refreshHistory();
+  stopPolling();
+  if (state.conversationId !== run.conversation_id) $('previous-messages').replaceChildren();
+  state.runId = run.id; state.conversationId = run.conversation_id;
+  render(run); loadConversation(run); refreshHistory();
+  try { sessionStorage.setItem('atlas-active-run', run.id); } catch (_) {}
   if (['queued', 'running'].includes(run.status)) state.timer = setInterval(poll, 1500);
 }
 $('new-run').addEventListener('click', async () => {
@@ -363,6 +407,8 @@ $('new-run').addEventListener('click', async () => {
   catch (error) { notice(error.message); return; }
   finally { $('new-run').disabled = false; }
   stopPolling(); state.runId = null; state.conversationId = null; state.run = null;
+  $('previous-messages').replaceChildren();
+  try { sessionStorage.removeItem('atlas-active-run'); } catch (_) {}
   $('conversation-title').textContent = 'Nova Conversa';
   $('conversation-title').setAttribute('data-agent-color', '');
   if ($('session-origin')) $('session-origin').hidden = true;
@@ -418,6 +464,7 @@ $('data-files').addEventListener('change', async event => {
     $('send').disabled = ['queued', 'running'].includes(state.run?.status);
   }
 });
+$('work-enabled')?.addEventListener('click', event => { const button = event.currentTarget; button.setAttribute('aria-pressed', button.getAttribute('aria-pressed') === 'true' ? 'false' : 'true'); });
 $('web-search-enabled').addEventListener('click', event => {
   const button = event.currentTarget;
   if (!button.disabled) button.setAttribute('aria-pressed', button.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
@@ -428,7 +475,7 @@ $('prompt-form').addEventListener('submit', async event => {
   if (requestPrompt.length > $('prompt').maxLength) { notice('O pedido excede o limite de caracteres. Reduza o texto ou as seleções.'); return; }
   $('send').disabled = true; notice();
   try {
-    const run = await (await api('/api/runs', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({web_search_enabled: $('web-search-enabled')?.getAttribute('aria-pressed') === 'true' && !$('web-search-enabled')?.disabled, output_format: $('output-dashboard')?.checked ? 'dashboard' : 'auto', prompt: requestPrompt, conversation_id: state.conversationId, dataset_ids: state.files.map(file => file.id), query_ids: typeof selectedQueryIds === 'function' ? selectedQueryIds() : []})})).json();
+    const run = await (await api('/api/runs', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({work_enabled: $('work-enabled')?.getAttribute?.('aria-pressed') === 'true', web_search_enabled: $('web-search-enabled')?.getAttribute('aria-pressed') === 'true' && !$('web-search-enabled')?.disabled, output_format: $('output-dashboard')?.checked ? 'dashboard' : 'auto', prompt: requestPrompt, conversation_id: state.conversationId, dataset_ids: state.files.map(file => file.id), query_ids: typeof selectedQueryIds === 'function' ? selectedQueryIds() : []})})).json();
     selectRun(run); $('prompt').value = ''; state.files = []; renderAttachments();
     if (typeof clearQueryAttachments === 'function') clearQueryAttachments();
   } catch (error) { notice(error.message); $('send').disabled = false; }
@@ -461,3 +508,9 @@ document.querySelectorAll('.suggestion').forEach(button => button.addEventListen
   $('prompt').value = button.dataset.prompt; $('prompt').focus();
 }));
 renderHistoryPage(); refreshStatus(); refreshHistory();
+(async () => {
+  let id = null; try { id = sessionStorage.getItem('atlas-active-run'); } catch (_) {}
+  if (!id || appPath() !== '/') return;
+  try { const run = await (await api(`/api/runs/${id}`)).json(); if (!state.runId) selectRun(run); }
+  catch (_) { /* A conversa pode ter expirado. */ }
+})();

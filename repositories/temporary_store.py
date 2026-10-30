@@ -103,7 +103,7 @@ class TemporaryStore:
     def conversation(self, conversation_id: str, limit: int = 6):
         runs = [*self.persistent.conversation(conversation_id, limit),
                 *(run for run in self.runs.values() if run.conversation_id == conversation_id and not run.parent_run_id)]
-        return sorted(runs, key=lambda run: run.created_at)[-limit:]
+        return sorted(runs, key=lambda run: run.created_at)[-limit:] if limit is not None else sorted(runs, key=lambda run: run.created_at)
 
     def list_conversations(self, limit: int | None = None):
         self.require_open()

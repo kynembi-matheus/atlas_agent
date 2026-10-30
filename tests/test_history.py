@@ -72,3 +72,29 @@ def test_legacy_schema_migration_preserves_unassigned_data(tmp_path):
     with store.connect() as db:
         assert db.execute('SELECT owner_id FROM runs').fetchone()[0] is None
     assert Store(tmp_path).get_run(run.id) is not None
+
+
+def test_conversation_endpoint_returns_all_turns_and_restores_import_session(settings, store, client_owner_scope):
+    conversation = str(uuid4())
+    runs = [run_at(index, conversation) for index in range(12)]
+    with TestClient(create_app(settings, mcp=object(), client=object())) as client:
+        with client_owner_scope(client):
+            for run in runs:
+                store.save_run(run)
+        response = client.get(f'/api/conversations/{conversation}/runs')
+        assert response.status_code == 200
+        assert [item['id'] for item in response.json()] == [run.id for run in runs]
+        session = client.post('/api/import-sessions').json()['session_id']
+        headers = {'X-Data-Session': session}
+        assert client.get('/api/import-sessions/current', headers=headers).json()['session_id'] == session
+        assert client.get('/api/import-sessions/current', headers=headers).status_code == 200
+
+
+def test_temporary_conversation_can_return_all_turns(store, tmp_path):
+    conversation = str(uuid4())
+    temporary = TemporaryStore(store, tmp_path / 'sessions', str(uuid4()))
+    runs = [run_at(index, conversation) for index in range(10)]
+    for run in runs:
+        temporary.save_run(run)
+    assert [run.id for run in temporary.conversation(conversation, None)] == [run.id for run in runs]
+    assert len(temporary.conversation(conversation)) == 6

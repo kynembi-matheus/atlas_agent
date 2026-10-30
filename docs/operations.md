@@ -518,3 +518,8 @@ Quando o proxy remove um prefixo antes de encaminhar as requisições, configure
 `APP_ROOT_PATH=/atlas` (ou o prefixo usado). O login, a interface e suas chamadas à API
 usam esse caminho; deixe a opção vazia para publicar na raiz. O proxy deve encaminhar
 `/atlas/` para `/` na aplicação e preservar o host e o protocolo externos.
+
+
+## Work (Python em WASI)
+
+O Work usa `wasi-python` e Wasmtime sem acesso à rede, ao ambiente ou aos diretórios do servidor. O código recebe somente os dados enviados na chamada. A pasta virtual `/output` aceita até 10 arquivos, com 200 MB no total, e são publicados apenas quando a execução termina com sucesso. Formatos: CSV, XLSX, PDF, JSON, TXT, PNG, JPG, ZIP, DOCX, PPTX e Markdown. Cada chamada tem limite de 60 segundos, 1024 MiB de memória e 16 KB por fluxo de saída. O agente pode usar o Work automaticamente; o botão pede que ele avalie seu uso.

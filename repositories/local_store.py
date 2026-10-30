@@ -138,11 +138,11 @@ class Store:
         return dict(conversations=row[0], requests=row[1], completed=row[2],
                     artifacts=row[3] + temporary_artifacts)
 
-    def conversation(self, conversation_id: str, limit: int = 6) -> list[Run]:
+    def conversation(self, conversation_id: str, limit: int | None = 6) -> list[Run]:
         with self.connect() as db:
             rows = db.execute(
                 "SELECT payload FROM runs WHERE conversation_id = ? AND json_extract(payload, '$.parent_run_id') IS NULL AND (? IS NULL OR owner_id = ?) ORDER BY rowid DESC LIMIT ?",
-                (conversation_id, history_owner.get(), history_owner.get(), limit),
+                (conversation_id, history_owner.get(), history_owner.get(), limit if limit is not None else -1),
             ).fetchall()
         return [Run.model_validate_json(row[0]) for row in reversed(rows)]
 
