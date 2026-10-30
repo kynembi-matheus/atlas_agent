@@ -50,7 +50,7 @@ test('dashboard table search ignores accents and pagination follows filtered res
 function libraryHarness(api) {
   const nodes = new Map(); const timers = [];
   const listeners = {};
-  const location = {pathname: '/dashboards', hash: ''};
+  const location = {pathname: '/sites', hash: ''};
   const context = vm.createContext({$, el: node, api, setInterval: fn => timers.push(fn),
     navigatePage: p => { location.pathname = p; return context.renderDashboardPage(); }, Date,
     document: {hidden: false, addEventListener() {}},
@@ -69,6 +69,20 @@ test('creating a dashboard selects its output mode and preserves an existing dra
   assert.equal(h.location.pathname, '/');
   assert.equal(h.nodes.get('output-dashboard').checked, true);
   assert.equal(h.nodes.get('prompt').value, 'Minha análise');
+});
+
+test('site and dashboard actions replace only their own suggested drafts', () => {
+  const h = libraryHarness(async () => ({json: async () => ({dashboards: [], limit: 4})}));
+  h.nodes.get('create-dashboard').click();
+  assert.match(h.nodes.get('prompt').value, /Crie um dashboard/);
+  h.nodes.get('create-site').click();
+  assert.match(h.nodes.get('prompt').value, /Crie um site/);
+  assert.equal(h.nodes.get('output-dashboard').checked, true);
+  h.nodes.get('create-dashboard').click();
+  assert.match(h.nodes.get('prompt').value, /Crie um dashboard/);
+  h.nodes.get('prompt').value = 'Meu texto';
+  h.nodes.get('create-site').click();
+  assert.equal(h.nodes.get('prompt').value, 'Meu texto');
 });
 
 test('filters accept only the current frame and persist across refresh and clear', async () => {
@@ -136,6 +150,7 @@ test('library shows quota and refreshes only when visible without overlapping re
   let requests = 0, resolve;
   const h = libraryHarness(async url => {
     if (url === '/api/dashboards') return {json: async () => ({dashboards: Array.from({length: 4}, (_, i) => ({id: String(i), title: 'Card'})), limit: 4})};
+    if (url === '/api/sites') return {json: async () => ({sites: []})};
     if (url === '/api/dashboards/0') return {json: async () => ({id: '0', title: 'Indicadores'})};
     requests++;
     return {text: () => new Promise(done => { resolve = done; })};
@@ -149,7 +164,7 @@ test('library shows quota and refreshes only when visible without overlapping re
   assert.equal(requests, 1);
   resolve('<html>Atual</html>'); await pending;
   assert.equal(h.nodes.get('dashboard-frame').srcdoc, '<html>Atual</html>');
-  assert.equal(h.location.pathname, '/dashboards/0');
+  assert.equal(h.location.pathname, '/sites/0');
   assert.equal(h.nodes.get('dashboards-page').hidden, true);
   assert.equal(h.nodes.get('dashboard-detail-page').hidden, false);
   h.context.document.hidden = true; h.timers[0]();
@@ -161,10 +176,10 @@ test('opening a dashboard by its own URL loads details without opening the libra
     requests.push(url);
     return {json: async () => ({id: 'direct', title: 'Meu painel'}), text: async () => '<html>Painel</html>'};
   });
-  h.location.pathname = '/dashboards/direct';
+  h.location.pathname = '/sites/direct';
   await h.context.renderDashboardPage();
   assert.deepEqual(requests, ['/api/dashboards/direct', '/api/dashboards/direct/html']);
-  assert.equal(h.context.document.title, 'Meu painel · Dashboards · Atlas Agent');
+  assert.equal(h.context.document.title, 'Meu painel · Sites · Assistente');
   assert.equal(h.nodes.get('dashboards-page').hidden, true);
   assert.equal(h.nodes.get('dashboard-frame').srcdoc, '<html>Painel</html>');
 });

@@ -41,6 +41,7 @@ from repositories.dashboards import LIMIT, Dashboards
 from repositories.local_store import Store
 from repositories.workspaces import Workspaces
 from tools.dashboards import Dashboard, RefreshStore, refresh
+from tools.sites import Sites, render_site
 from tools.data_tools import (
     CATALOG_DATABASES,
     FavoriteQuery,
@@ -65,6 +66,7 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
     async def lifespan(app: FastAPI):
         store = Store(settings.data_dir)
         store.recover()
+        store.purge_expired_artifacts()
         llm = client if client is not None else make_client(settings)
         pg = mcp if mcp is not None else PgMCP(settings)
         app.state.store, app.state.mcp = store, pg
@@ -72,11 +74,19 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
         app.state.imports = ImportSessions(settings, store, pg, llm)
         app.state.llm = llm
         app.state.scheduler = Scheduler(app.state.manager)
+        async def sweep_artifacts():
+            while True:
+                await asyncio.sleep(3600)
+                await asyncio.to_thread(store.purge_expired_artifacts)
+        artifact_sweep = asyncio.create_task(sweep_artifacts())
         scheduler_task = asyncio.create_task(app.state.scheduler.serve())
         sweep = asyncio.create_task(app.state.imports.sweep())
         try:
             yield
         finally:
+            artifact_sweep.cancel()
+            with suppress(asyncio.CancelledError):
+                await artifact_sweep
             scheduler_task.cancel()
             with suppress(asyncio.CancelledError):
                 await scheduler_task
@@ -126,6 +136,16 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
         if item is None:
             raise HTTPException(404, 'Dashboard não encontrado neste perfil.')
         return item
+
+    @router.get('/sites', tags=['Sites'])
+    async def list_sites():
+        items = Sites(app.state.store).list(dashboard_owner.get())
+        return {'sites': [{k: item[k] for k in ('id', 'title', 'description', 'created_at')} for item in items]}
+
+    @router.delete('/sites/{site_id}', status_code=204, tags=['Sites'])
+    async def delete_site(site_id: str):
+        if not Sites(app.state.store).delete(dashboard_owner.get(), site_id):
+            raise HTTPException(404, 'Site nao encontrado neste perfil.')
 
     @router.get('/dashboards', tags=['Dashboards'])
     async def list_dashboards():
@@ -330,7 +350,8 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
                              and origin == 'http://' + target)):
                 blocked = JSONResponse({'detail': 'Origem não permitida.'}, status_code=403)
             public = (request.url.path in {'/login', '/health', '/favicon.ico'}
-                      or request.url.path.startswith('/static/'))
+                      or request.url.path.startswith('/static/')
+                      or bool(re.fullmatch(r'/public/sites/[A-Za-z0-9_-]{43}', request.url.path)))
             if not public and not request.state.identity:
                 blocked = JSONResponse({'detail': 'Entre pelo ScdAuth para acessar a aplicação.'},
                                        status_code=401)
@@ -346,7 +367,7 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
         finally:
             dashboard_owner.reset(token)
             history_owner.reset(history_token)
-        if new_owner:
+        if new_owner and not request.url.path.startswith('/public/sites/'):
             response.set_cookie('scd-dashboard-profile', owner, max_age=31536000,
                                 httponly=True, samesite='strict', secure=request.url.scheme == 'https')
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -355,12 +376,23 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
             "default-src 'self'; script-src 'self'; style-src 'self'; "
             "img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"
         )
+        if request.url.path.startswith('/public/sites/'):
+            response.headers["Content-Security-Policy"] = "sandbox; default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
         if auth_sessions or request.url.path in {'/login', '/logout'} or request.url.path.startswith("/api/"):
             response.headers["Cache-Control"] = "no-store"
         # Swagger usa scripts externos; a UI principal não depende de CDN.
         if request.url.path in {"/docs", "/redoc", "/docs/oauth2-redirect"}:
             del response.headers["Content-Security-Policy"]
         return response
+
+    @app.get('/public/sites/{site_id}', include_in_schema=False)
+    async def public_site(site_id: str):
+        if not re.fullmatch(r'[A-Za-z0-9_-]{43}', site_id):
+            raise HTTPException(404, 'Site nao encontrado.')
+        item = Sites(app.state.store).get_public(site_id)
+        if item is None:
+            raise HTTPException(404, 'Site nao encontrado.')
+        return HTMLResponse(render_site(item), headers={'Cache-Control': 'no-store'})
 
     @app.get("/health", tags=["Operação"])
     async def health():
@@ -498,6 +530,13 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
             raise HTTPException(404, "Dataset não encontrado.")
         return preview(dataset)
 
+    @router.get("/artifacts", tags=["Relatórios"])
+    async def list_artifacts(session: Session):
+        items = app.state.store.list_artifacts()
+        if session:
+            items.extend(session.store.artifacts.values())
+        return sorted(items, key=lambda item: item['created_at'], reverse=True)
+
     @router.get("/artifacts/{artifact_id}", tags=["Relatórios"])
     async def artifact(artifact_id: UUID, session: Session):
         store = scoped_store(session)
@@ -517,9 +556,11 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
     app.mount("/static", StaticFiles(directory=ROOT / "frontend"), name="static")
 
     @app.get("/", include_in_schema=False)
+    @app.get("/midias", include_in_schema=False)
     @app.get("/historico", include_in_schema=False)
     @app.get("/sessoes", include_in_schema=False)
     @app.get("/agendamentos", include_in_schema=False)
+    @app.get("/sites", include_in_schema=False)
     @app.get("/dashboards", include_in_schema=False)
     async def index():
         html = (ROOT / 'frontend/index.html').read_text(encoding='utf-8')
@@ -528,6 +569,7 @@ def create_app(settings: Settings | None = None, *, mcp=None, client=None,
         html = html.replace('src="/', f'src="{settings.app_root_path}/')
         return HTMLResponse(html)
 
+    @app.get('/sites/{dashboard_id}', include_in_schema=False)
     @app.get('/dashboards/{dashboard_id}', include_in_schema=False)
     async def dashboard_page(dashboard_id: UUID):
         return await index()

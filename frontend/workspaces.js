@@ -28,7 +28,7 @@ async function openWorkspaceDialog(kind, proposal = null) {
     const draft = proposal?.prompt || $('prompt').value.trim() || state.run?.prompt || '';
     const prompt = typeof expandChatMentions === 'function' ? expandChatMentions(draft) : draft;
     if (kind === 'schedule' && prompt.length < 3) throw new Error('Escreva o pedido que deseja agendar no chat.');
-    const scheduleOptions = {dataset_ids: (state.files || []).map(file => file.id), query_ids: typeof selectedQueryIds === 'function' ? selectedQueryIds() : [], output_format: $('output-dashboard').checked ? 'dashboard' : 'auto', web_search_enabled: $('web-search-enabled').getAttribute('aria-pressed') === 'true' && !$('web-search-enabled').disabled};
+    const scheduleOptions = {dataset_ids: (state.files || []).map(file => file.id), query_ids: typeof selectedQueryIds === 'function' ? selectedQueryIds() : [], output_format: $('output-dashboard').checked ? 'sites' : 'auto', web_search_enabled: $('web-search-enabled').getAttribute('aria-pressed') === 'true' && !$('web-search-enabled').disabled};
     const id = kind === 'subagents' && state.run?.origin_conversation_id ? state.run.origin_conversation_id : await ensureWorkspace();
     if (openRequest !== workspaceUi.openRequest) return;
     resetWorkspaceUi(); workspaceUi.conversationId = id;
@@ -244,7 +244,7 @@ $('execute-subagent').addEventListener('click', async () => {
   try {
     const source = state.run;
     const id = source?.origin_conversation_id || await ensureWorkspace();
-    const payload = {task, source_run_id: source?.id || null, dataset_ids: (state.files || []).map(file => file.id), query_ids: typeof selectedQueryIds === 'function' ? selectedQueryIds() : [], output_format: $('output-dashboard').checked ? 'dashboard' : 'auto', web_search_enabled: $('web-search-enabled').getAttribute('aria-pressed') === 'true' && !$('web-search-enabled').disabled};
+    const payload = {task, source_run_id: source?.id || null, dataset_ids: (state.files || []).map(file => file.id), query_ids: typeof selectedQueryIds === 'function' ? selectedQueryIds() : [], output_format: $('output-dashboard').checked ? 'sites' : 'auto', web_search_enabled: $('web-search-enabled').getAttribute('aria-pressed') === 'true' && !$('web-search-enabled').disabled};
     const sessionId = state.sessionId;
     const profiles = (await (await api(`/api/workspaces/${id}/subagents`)).json()).subagents;
     const chosen = profiles.length ? await chooseDelegate(profiles, task) : 'new';

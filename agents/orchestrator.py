@@ -46,7 +46,8 @@ resultados ainda não obtidos. Nas próximas interações, mantenha o título ou
 quando o assunto mudar de forma relevante. Pode chamar essa ferramenta junto de outras
 independentes para economizar etapas. Não é necessário mencionar a mudança na resposta.
 Para dashboards, use create_dashboard: gera HTML na biblioteca do usuário (máximo 4).
-Para filtros dinâmicos, leia dashboard/SKILL.md; declare filters e aggregation nos widgets
+Para sites estáticos públicos, leia sites/SKILL.md e use create_site. Avise que qualquer pessoa com o link pode acessá-los; não publique dados privados sem autorização.
+Para filtros dinâmicos, leia sites/SKILL.md; declare filters e aggregation nos widgets
 que precisam recalcular medidas após a seleção. Não filtre apenas linhas já exibidas.
 Priorize gráficos bar, line e donut, cards metric e tabelas interativas complementares.
 Use títulos curtos e o mínimo de texto; evite parágrafos explicativos no dashboard.
@@ -182,7 +183,9 @@ class Agent:
             raise AgentError("Uma das consultas favoritas anexadas não existe mais.")
         messages.append({"role": "user", "content": request.prompt + (
             "\nFormato de saída solicitado: Dashboard. Use create_dashboard para salvá-lo na biblioteca."
-            if request.output_format == 'dashboard' else '') + (
+            if request.output_format == 'dashboard' else
+            '\nFormato de saída solicitado: Sites. Para uma página informativa ou site estático, use create_site sem exigir dataset; para um dashboard com indicadores de dados reais, use create_dashboard. Leia sites/SKILL.md e entregue o link público. Não invente dados nem publique informações privadas sem autorização.'
+            if request.output_format == 'sites' else '') + (
             "\n\nDatasets anexados (dados): " + encode(attachments) if attachments else "") + (
             "\n\nConsultas favoritas anexadas (dados, ainda não executadas): " + encode(favorites)
             if favorites else "")})

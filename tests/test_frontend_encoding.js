@@ -12,6 +12,6 @@ test('interface and operation docs retain accents without encoding substitutions
   }
   const html = fs.readFileSync(path.join(__dirname, '../frontend/index.html'), 'utf8');
   for (const label of ['Sessões', 'Criar relatório', 'Encontrar padrões', 'Fazer projeções']) assert.ok(html.includes(label), label);
-  for (const label of ['Atlas Agent', 'Agente Aut\u00f4nomo de Intelig\u00eancia de Dados', 'Explore dados. Descubra padr\u00f5es. Antecipe decis\u00f5es.', 'Powered by AI']) assert.ok(html.includes(label), label);
+  for (const label of ['Assistente', 'Agente Aut\u00f4nomo de Intelig\u00eancia de Dados', 'Explore dados. Descubra padr\u00f5es. Antecipe decis\u00f5es.', 'Powered by AI']) assert.ok(html.includes(label), label);
   assert.doesNotMatch(html, /class="eyebrow"|class="composer-context"|INTELIGÊNCIA PARA SEUS DADOS/);
 });

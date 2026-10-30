@@ -5,39 +5,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <meta name="theme-color" content="#101d38">
-  <meta name="description" content="Atlas Agent — Agente Autônomo de Inteligência de Dados. Explore dados. Descubra padrões. Antecipe decisões.">
-  <title>Atlas Agent · Seu espaço de análise</title>
+  <meta name="description" content="Assistente — Agente Autônomo de Inteligência de Dados. Explore dados. Descubra padrões. Antecipe decisões.">
+  <title>Assistente · Seu espaço de análise</title>
   <script src="/static/theme.js?v=1"></script>
-  <link rel="stylesheet" href="/static/style.css?v=55">
+  <link rel="stylesheet" href="/static/style.css?v=83">
   <script src="/static/markdown.js" defer></script>
-  <script src="/static/greetings.js?v=2" defer></script>
-  <script src="/static/app.js?v=27" defer></script>
-  <script src="/static/workspaces.js?v=13" defer></script>
+  <script src="/static/greetings.js?v=5" defer></script>
+  <script src="/static/app.js?v=38" defer></script>
+  <script src="/static/workspaces.js?v=14" defer></script>
   <script src="/static/chat-drag.js?v=1" defer></script>
-  <script src="/static/profile.js?v=4" defer></script>
+  <script src="/static/profile.js?v=6" defer></script>
   <script src="/static/catalog.js?v=6" defer></script>
   <script src="/static/skills.js?v=3" defer></script>
   <script src="/static/imports.js?v=3" defer></script>
   <script src="/static/mentions.js?v=3" defer></script>
   <script src="/static/queries.js?v=4" defer></script>
-  <script src="/static/dashboards.js?v=4" defer></script>
-  <script src="/static/sidebar.js?v=1" defer></script>
+  <script src="/static/dashboards.js?v=9" defer></script>
+  <script src="/static/sidebar.js?v=2" defer></script>
 </head>
 <body>
 <a class="skip" href="#prompt">Pular para o pedido</a>
 <div class="shell">
   <aside id="app-sidebar" class="sidebar" aria-label="Navegação e sessões">
     <button id="toggle-sidebar" class="icon-button sidebar-toggle" type="button" aria-label="Minimizar sidebar" title="Minimizar sidebar" aria-controls="app-sidebar" aria-expanded="true"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-sidebar"/></svg></button>
-    <a class="brand" href="/" aria-label="Atlas Agent, início"><span class="brand-mark" aria-hidden="true"><img src="/static/logo.png" alt=""></span><span>Atlas <span class="brand-light">Agent</span></span></a>
+    <a class="brand" href="/" aria-label="Início"><span class="brand-mark" aria-hidden="true"><img src="/static/logo.png" alt=""></span></a>
     <button id="new-run" class="new-button" type="button" aria-label="Nova sessão" title="Nova sessão"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-plus"/></svg><span class="sidebar-link-label">Nova sessão</span></button>
     <div class="history-heading"><span class="side-label sessions-label">Sessões</span><a id="more-history" class="sessions-all" title="Ver todas as sessões" href="/sessoes">Ver todas as sessões<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-chat"/></svg></a></div>
     <nav id="history" aria-label="Sessões recentes"><p class="muted">Nenhuma sessão ainda.</p></nav>
-    <a id="open-dashboards" class="history-more dashboard-nav" href="/dashboards" aria-label="Dashboards" title="Dashboards"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-dashboard"/></svg><span class="sidebar-link-label">Dashboards</span></a>
+    <a id="open-media" class="history-more dashboard-nav" href="/midias" aria-label="Mídias e Arquivos" title="Mídias e Arquivos"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-attach"/></svg><span class="sidebar-link-label">Mídias e Arquivos</span></a>
+    <a id="open-dashboards" class="history-more dashboard-nav" href="/sites" aria-label="Sites" title="Sites"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-dashboard"/></svg><span class="sidebar-link-label">Sites</span></a>
     <a id="open-schedules" class="history-more dashboard-nav" href="/agendamentos" aria-label="Agendamentos" title="Agendamentos"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-clock"/></svg><span class="sidebar-link-label">Agendamentos</span></a>
     <p class="brand-signature">Powered by AI</p>
   </aside>
   <main>
     <header class="account-header">
+      <section id="conversation-header" class="workspace-head" aria-label="Conversa">
+        <div><button id="session-origin" class="text-button session-origin" type="button" hidden>← Voltar à sessão</button><h1 id="conversation-title">Nova Conversa</h1><button id="open-subagents" class="icon-button composer-shortcut" type="button" title="Subagentes desta sessão" aria-label="Time de Agentes" aria-haspopup="dialog" aria-controls="subagents-dialog"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-users"/></svg><span>Time de Agentes</span></button></div>
+      </section>
       <button id="open-profile" class="profile-trigger" type="button" aria-label="Abrir perfil e uso" aria-haspopup="dialog" aria-controls="profile-dialog">
         <span class="user-avatar" aria-hidden="true"><span id="sidebar-user-initials">U</span><img id="sidebar-user-photo" alt="" hidden></span>
         <span class="profile-trigger-details"><strong id="sidebar-user-name">Usuário</strong><span id="sidebar-user-identity">Departamento não informado</span></span>
@@ -46,15 +50,16 @@
     </header>
     <div class="workspace">
       <div id="notice" class="notice" role="status" hidden></div>
+      <section id="media-page" class="conversation media-page" hidden><header class="media-header"><div><p class="media-eyebrow">BIBLIOTECA</p><h1>Mídias e Arquivos</h1><p class="muted">Encontre e baixe os arquivos gerados nas suas conversas.</p></div><p class="media-retention">Disponíveis por 15 dias</p></header><div class="media-section"><div class="media-section-heading"><h2>Seus arquivos</h2><p class="muted">Selecione um arquivo para baixar.</p></div><div id="media-list" class="media-list" aria-live="polite"></div></div></section>
       <section id="dashboards-page" aria-labelledby="dashboards-title" hidden>
         <a id="dashboard-back" class="history-back" href="/"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-back"/></svg> Voltar à conversa</a>
-        <div class="dashboard-heading"><div><p class="side-label">SEU ESPAÇO DE INDICADORES</p><h1 id="dashboards-title">Dashboards</h1><p class="muted">Acompanhe seus indicadores e encontre suas análises em um só lugar.</p></div><button id="create-dashboard" class="new-button" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-plus"/></svg> Criar dashboard</button></div>
+        <div class="dashboard-heading"><div><p class="side-label">SUA BIBLIOTECA</p><h1 id="dashboards-title">Sites</h1><p class="muted">Acesse seus dashboards e páginas publicadas em um só lugar.</p></div><div class="sites-create-actions"><button id="create-site" class="secondary" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-plus"/></svg>Criar site</button><button id="create-dashboard" class="new-button" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-plus"/></svg> Criar dashboard</button></div></div>
         <div class="dashboard-meta"><p id="dashboard-count" class="muted" role="status"></p><button id="reload-dashboards" class="secondary" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-refresh"/></svg>Atualizar biblioteca</button></div>
         <p id="dashboard-status" role="status" aria-live="polite"></p>
         <div id="dashboard-library" class="dashboard-library"></div>
       </section>
       <section id="dashboard-detail-page" hidden aria-labelledby="dashboard-view-title">
-        <a id="dashboard-library-back" class="history-back" href="/dashboards"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-back"/></svg> Biblioteca de dashboards</a>
+        <a id="dashboard-library-back" class="history-back" href="/sites"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-back"/></svg> Biblioteca de sites</a>
         <div id="dashboard-view">
           <div class="dashboard-meta"><h1 id="dashboard-view-title" tabindex="-1">Dashboard</h1><button id="refresh-dashboard" class="secondary" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-refresh"/></svg>Atualizar dados</button></div>
           <p id="dashboard-update-status" role="status" aria-live="polite"></p>
@@ -85,12 +90,11 @@
         </nav>
       </section>
       <div id="chat-page">
-      <section class="workspace-head">
-        <div><button id="session-origin" class="text-button session-origin" type="button" hidden>← Voltar à sessão</button><h1 id="conversation-title">Nova Conversa</h1><button id="open-subagents" class="icon-button composer-shortcut" type="button" title="Subagentes desta sessão" aria-label="Time de Agentes" aria-haspopup="dialog" aria-controls="subagents-dialog"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-users"/></svg><span>Time de Agentes</span></button></div>
-      </section>
+
       <section id="welcome" class="welcome">
+        <img class="welcome-logo" src="/static/logo.png" alt="Atlas">
+        <p id="agent-introduction" class="agent-introduction" aria-live="polite"></p>
         <h2 id="welcome-greeting">O que vamos descobrir juntos?</h2>
-        <p id="welcome-description" class="welcome-description">Conte o que você precisa ou escolha uma ideia para começar.</p>
         <div class="suggestions">
           <button class="suggestion" type="button" data-prompt="Crie um relatório em Excel com os principais indicadores e gráficos."><span class="mint" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-report"/></svg></span> Criar relatório</button>
           <button class="suggestion" type="button" data-prompt="Encontre padrões e valores atípicos nos dados, com evidências e limites da análise."><span class="peach" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-patterns"/></svg></span> Encontrar padrões</button>
@@ -100,7 +104,7 @@
       <section id="conversation" class="conversation" aria-label="Conversa" hidden>
         <div id="previous-messages"></div>
         <div class="message-user"><span class="message-label">VOCÊ</span><p id="user-message"></p></div>
-        <div class="agent-message"><div class="agent-heading"><span class="mini-mark" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-sparkles"/></svg></span><strong>Atlas Agent</strong><span id="run-status" class="status-pill" role="status" aria-live="polite" aria-atomic="true"></span><button id="cancel-run" class="text-button danger" type="button" hidden><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-cancelled"/></svg>Cancelar execução</button></div>
+        <div class="agent-message"><div class="agent-heading"><span class="mini-mark" aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-sparkles"/></svg></span><strong id="agent-name">Assistente</strong><span id="run-status" class="status-pill" role="status" aria-live="polite" aria-atomic="true"></span><button id="cancel-run" class="text-button danger" type="button" hidden><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-cancelled"/></svg>Cancelar execução</button></div>
           <div id="run-events" class="events" aria-live="polite" aria-label="Andamento da execução"></div>
           <div id="answer" class="answer"></div><div id="run-error" class="run-error" role="alert" hidden></div>
           <div id="artifacts" class="artifacts" aria-label="Arquivos gerados"></div>
@@ -121,21 +125,21 @@
           </div>
           <label class="sr-only" for="prompt">O que você precisa analisar?</label>
           <textarea id="prompt" rows="3" maxlength="16000" placeholder="Conte o que você quer analisar ou criar…" aria-label="Seu pedido" aria-autocomplete="list" aria-controls="mention-options" aria-expanded="false" aria-describedby="chat-shortcuts" required></textarea>
-          <div class="composer-toolbar"><div class="composer-left"><label class="attach-button" for="data-files"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-attach"/></svg> Anexar</label><input id="data-files" class="sr-only" type="file" accept=".pdf,.xlsx,.csv,.docx,.pptx" multiple aria-label="Anexar PDF, XLSX, CSV, DOCX ou PPTX"></div><div class="composer-actions"><button id="open-schedule" class="composer-action" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-clock"/></svg>Agendar</button><button id="execute-subagent" class="composer-action" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-users"/></svg>Delegar para Subagente</button><button id="send" class="send-button" type="submit" title="Executar pedido (Enter)"><span>Executar</span><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8V4H9"/><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M2 14h2m16 0h2M9 13h.01M15 13h.01M9 17h6"/></svg></button></div></div>
-          <div class="composer-options">
-            <div class="composer-tools">
-              <button id="web-search-enabled" class="web-search-toggle" type="button" aria-pressed="false" title="Permitir pesquisa e leitura de páginas públicas neste pedido."><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-globe"/></svg><span>Pesquisar na web</span><span class="web-search-indicator" aria-hidden="true"></span></button>
-              <button id="work-enabled" class="web-search-toggle" type="button" aria-pressed="false" title="Solicitar uso do Work. O agente também pode usá-lo quando necessário."><span>Work</span><span class="web-search-indicator" aria-hidden="true"></span></button>
-              <nav class="workspace-choices" aria-label="Ferramentas do chat">
+          <div class="composer-toolbar"><div class="composer-left"><label class="attach-button" for="data-files"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-attach"/></svg> Anexar</label><input id="data-files" class="sr-only" type="file" accept=".pdf,.xlsx,.csv,.docx,.pptx" multiple aria-label="Anexar PDF, XLSX, CSV, DOCX ou PPTX"><nav class="workspace-choices" aria-label="Ferramentas do chat">
           <button id="toggle-preview" class="choice-button" type="button" aria-controls="data-preview" aria-expanded="false"><span aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-database"/></svg></span> Dados</button>
           <button id="toggle-imports" class="choice-button" type="button" aria-controls="imports-panel" aria-expanded="false"><span aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-upload"/></svg></span> Importar</button>
           <button id="toggle-skills" class="choice-button" type="button" aria-controls="skills-panel" aria-expanded="false"><span aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-sparkles"/></svg></span> Skills</button>
           <button id="toggle-queries" class="choice-button" type="button" aria-controls="queries-panel" aria-expanded="false"><span aria-hidden="true"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-star"/></svg></span> Queries</button>
-        </nav>
+        </nav></div><div class="composer-actions"><button id="open-schedule" class="composer-action" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-clock"/></svg>Agendar</button><button id="execute-subagent" class="composer-action" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-users"/></svg>Delegar para Subagente</button><button id="send" class="send-button" type="submit" title="Executar pedido (Enter)"><span>Executar</span><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8V4H9"/><rect x="4" y="8" width="16" height="12" rx="3"/><path d="M2 14h2m16 0h2M9 13h.01M15 13h.01M9 17h6"/></svg></button></div></div>
+          <div class="composer-options">
+            <div class="composer-tools">
+              <button id="web-search-enabled" class="web-search-toggle" type="button" aria-pressed="false" title="Permitir pesquisa e leitura de páginas públicas neste pedido."><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-globe"/></svg><span>Pesquisar na web</span><span class="web-search-indicator" aria-hidden="true"></span></button>
+              <button id="work-enabled" class="web-search-toggle" type="button" aria-pressed="false" title="Solicitar uso do Modo de Trabalho. O agente também pode usá-lo quando necessário."><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></svg><span>Modo de Trabalho</span><span class="web-search-indicator" aria-hidden="true"></span></button>
+
             </div>
             <fieldset class="output-options"><legend class="sr-only">Formato de saída</legend>
               <label class="output-choice"><input id="output-normal" class="sr-only" type="radio" name="output-format" value="auto" checked><span><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-chat"/></svg>Normal</span></label>
-              <label class="output-choice"><input id="output-dashboard" class="sr-only" type="radio" name="output-format" value="dashboard"><span><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-dashboard"/></svg>Dashboard</span></label>
+              <label class="output-choice"><input id="output-dashboard" class="sr-only" type="radio" name="output-format" value="sites"><span><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-dashboard"/></svg>Sites</span></label>
             </fieldset>
           </div>
         </form>
@@ -198,24 +202,26 @@
       <div><dt>Unidade / PA</dt><dd id="profile-unit">Não informado</dd></div>
     </dl>
   </section>
-  <section aria-labelledby="usage-title">
-    <h3 id="usage-title">Uso da aplicação</h3>
+  <button id="open-usage" class="secondary profile-usage-button" type="button" aria-haspopup="dialog" aria-controls="usage-dialog">Uso da aplicação <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-arrow"/></svg></button>
+  <p id="profile-feedback" class="muted" role="status" aria-live="polite"></p>
+  <section class="profile-appearance" aria-labelledby="appearance-title">
+    <h3 id="appearance-title">Preferências</h3>
+    <div class="theme-row"><div><strong>Tema escuro</strong><p class="muted">Preferência salva neste navegador.</p></div><button id="theme-toggle" class="theme-switch" type="button" role="switch" aria-checked="false" aria-label="Tema escuro"><span></span></button></div>
+  </section>
+  </div>
+  <footer id="profile-session-actions" class="profile-footer" hidden><p id="profile-session-feedback" role="status" aria-live="polite" class="muted"></p><button id="logout-profile" class="profile-logout" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-back"/></svg>Sair da sessão</button></footer>
+</dialog>
+<dialog id="usage-dialog" class="query-dialog usage-dialog" aria-labelledby="usage-title">
+  <header class="preview-heading"><h2 id="usage-title">Uso da aplicação</h2><button id="close-usage" class="icon-button" type="button" aria-label="Fechar estatísticas de uso" autofocus><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-close"/></svg></button></header>
+  <div class="usage-dialog-body">
     <p id="profile-scope" class="muted">Suas sessões e seus arquivos são privados. Consultas favoritas são compartilhadas nesta instalação.</p>
-    <p id="profile-feedback" class="muted" role="status" aria-live="polite"></p>
     <dl id="profile-stats" class="profile-stats" hidden>
       <div><dt>Sessões</dt><dd id="usage-conversations">—</dd></div>
       <div><dt>Pedidos enviados</dt><dd id="usage-requests">—</dd></div>
       <div><dt>Análises concluídas</dt><dd id="usage-completed">—</dd></div>
       <div><dt>Arquivos gerados</dt><dd id="usage-artifacts">—</dd></div>
     </dl>
-  </section>
-  <section class="profile-appearance" aria-labelledby="appearance-title">
-    <h3 id="appearance-title">Preferências</h3>
-    <div class="theme-row"><div><strong>Tema escuro</strong><p class="muted">Preferência salva neste navegador.</p></div><button id="theme-toggle" class="theme-switch" type="button" role="switch" aria-checked="false" aria-label="Tema escuro"><span></span></button></div>
-    <button id="refresh-profile" class="secondary profile-refresh" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-refresh"/></svg>Atualizar perfil</button>
-  </section>
   </div>
-  <footer id="profile-session-actions" class="profile-footer" hidden><p id="profile-session-feedback" role="status" aria-live="polite" class="muted"></p><button id="logout-profile" class="profile-logout" type="button"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-back"/></svg>Sair da sessão</button></footer>
 </dialog>
 <dialog id="query-dialog" class="query-dialog" aria-labelledby="query-dialog-title">
     <div class="preview-heading"><h2 id="query-dialog-title">Nova query</h2><button id="close-query-dialog" class="icon-button" type="button" aria-label="Fechar editor de query"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="/static/vendor/lucide/sprite.svg?v=0.468.0#icon-close"/></svg></button></div>

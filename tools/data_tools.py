@@ -31,6 +31,8 @@ from integrations.pg_mcp import PgMCP
 from integrations.web_search import search_web
 from repositories.local_store import Store, encode, now
 from tools.dashboards import Dashboard, create_dashboard
+from tools.sites import Site, Sites
+from core.dashboard_identity import dashboard_owner
 from tools.excel_reports import ExcelReport, build_excel
 from tools.forecasting import ForecastRequest, estimate_forecast
 from tools.internet import ReadWebPage, SearchWeb
@@ -229,7 +231,7 @@ SCHEMAS = {
     "set_conversation_title": ConversationTitle,
     "work_python": WorkPython,
     "search_web": SearchWeb, "read_web_page": ReadWebPage,
-    "create_dashboard": Dashboard,
+    "create_dashboard": Dashboard, "create_site": Site,
     "list_favorite_queries": ListFavoriteQueries, "run_favorite_query": RunFavoriteQuery,
     "update_plan": Plan, "search_docs": SearchDocs, "read_doc": ReadDoc,
     "list_databases": ListDatabases, "list_public_databases": ListPublicDatabases,
@@ -391,6 +393,10 @@ class Toolbox:
 
     async def read_web_page(self, args: ReadWebPage):
         return await Internet(self.settings).read(args.url, args.offset)
+
+    async def create_site(self, args: Site):
+        item = Sites(self.query_store).create(dashboard_owner.get(), args)
+        return {"id": item["id"], "title": item["title"], "url": "/public/sites/" + item["id"], "public": True}
 
     async def create_dashboard(self, args: Dashboard):
         return await create_dashboard(self, args)

@@ -12,20 +12,13 @@
     'Vamos encontrar a história por trás dos números?',
     'Pode perguntar: os dados não mordem!',
   ];
-  const greeting = document.getElementById('welcome-greeting');
-  if (greeting) greeting.textContent = greetings[Math.floor(Math.random() * greetings.length)];
-  const descriptions = [
-    'Conte o que você precisa ou escolha uma ideia para começar.',
-    'Escreva sua pergunta ou escolha uma sugestão abaixo.',
-    'Toda descoberta começa com uma pergunta. Qual é a sua?',
-    'Diga por onde quer começar e vamos explorar juntos.',
-    'Compartilhe sua ideia ou escolha um ponto de partida.',
-    'Pode trazer sua dúvida: a gente começa por ela.',
-    'Escolha uma sugestão ou escreva o que está pensando.',
-    'Uma boa pergunta já é meio caminho andado. Vamos lá?',
-  ];
-  const description = document.getElementById('welcome-description');
-  if (description) description.textContent = descriptions[Math.floor(Math.random() * descriptions.length)];
+  globalThis.refreshWelcomeGreeting = () => {
+    const greeting = document.getElementById('welcome-greeting');
+    if (!greeting) return;
+    const choices = greetings.filter(text => text !== greeting.textContent);
+    greeting.textContent = choices[Math.floor(Math.random() * choices.length)];
+  };
+  refreshWelcomeGreeting();
   const ideas = [
     ['Criar relatório', 'Crie um relatório em Excel com os principais indicadores e gráficos.'],
     ['Encontrar padrões', 'Encontre padrões e valores atípicos nos dados, com evidências e limites da análise.'],

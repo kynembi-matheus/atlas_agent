@@ -40,7 +40,6 @@
     $('profile-stats').hidden = true;
     $('profile-body').setAttribute('aria-busy', 'true');
     $('profile-feedback').textContent = 'Atualizando informações do perfil…';
-    $('refresh-profile').disabled = true;
     try {
       const profile = await (await api('/api/profile')).json();
       if (current !== revision || (!background && !dialog.open)) return;
@@ -70,10 +69,9 @@
       $('profile-stats').hidden = false;
       $('profile-feedback').textContent = '';
     } catch (_) {
-      if (current === revision && dialog.open) $('profile-feedback').textContent = 'Não foi possível atualizar o perfil. Tente novamente em Atualizar perfil.';
+      if (current === revision && dialog.open) $('profile-feedback').textContent = 'Não foi possível atualizar o perfil. Feche e abra o perfil para tentar novamente.';
     } finally {
       if (current === revision) {
-        $('refresh-profile').disabled = false;
         $('profile-body').setAttribute('aria-busy', 'false');
       }
     }
@@ -84,9 +82,10 @@
     syncTheme();
     loadProfile();
   });
+  $('open-usage').addEventListener('click', () => $('usage-dialog').showModal());
+  $('close-usage').addEventListener('click', () => $('usage-dialog').close());
   $('close-profile').addEventListener('click', () => dialog.close());
-  dialog.addEventListener('close', () => { revision++; $('refresh-profile').disabled = false; $('profile-body').setAttribute('aria-busy', 'false'); });
-  $('refresh-profile').addEventListener('click', loadProfile);
+  dialog.addEventListener('close', () => { revision++; $('profile-body').setAttribute('aria-busy', 'false'); });
   $('logout-profile').addEventListener('click', async () => {
     const button = $('logout-profile');
     if (button.disabled) return;
@@ -104,7 +103,6 @@
       $('profile-session-feedback').textContent = 'Não foi possível sair. Tente novamente.';
       button.disabled = false;
       button.textContent = 'Sair da sessão';
-      $('refresh-profile').disabled = false;
     }
   });
   loadProfile({background: true});

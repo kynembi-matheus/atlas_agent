@@ -13,7 +13,7 @@ function setup({saved, blocked = false, api, fetch: fetcher} = {}) {
       setAttribute(key, value) { this.attributes[key] = value; },
       removeAttribute(key) { delete this[key]; },
       showModal() { this.open = true; },
-      close() { this.open = false; this.listeners.close(); },
+      close() { this.open = false; this.listeners.close?.(); },
     });
     return nodes.get(id);
   }
@@ -162,11 +162,12 @@ test('failed usage hides stale totals, supports retry and keeps theme available'
   await settle();
   assert.equal($('profile-stats').hidden, true);
   assert.match($('profile-feedback').textContent, /Não foi possível/);
-  assert.equal($('refresh-profile').disabled, false);
   $('theme-toggle').listeners.click();
   assert.equal(root.dataset.theme, 'dark');
   failed = false;
-  await $('refresh-profile').listeners.click();
+  $('close-profile').listeners.click();
+  $('open-profile').listeners.click();
+  await settle();
   assert.equal($('usage-requests').textContent, '0');
   assert.equal($('profile-feedback').textContent, '');
 });
@@ -203,4 +204,18 @@ test('signed-in profile photo appears in both locations and falls back on error'
   await settle();
   assert.equal($('profile-photo').src, undefined);
   assert.equal($('profile-initials').hidden, false);
+});
+
+test('usage opens in a separate dialog and returns to the profile', async () => {
+  const {$} = setup();
+  $('open-profile').listeners.click();
+  await settle();
+  $('open-usage').listeners.click();
+  assert.equal($('profile-dialog').open, true);
+  assert.equal($('usage-dialog').open, true);
+  assert.equal($('profile-stats').hidden, false);
+  assert.equal($('usage-requests').textContent, '1.200');
+  $('close-usage').listeners.click();
+  assert.equal($('usage-dialog').open, false);
+  assert.equal($('profile-dialog').open, true);
 });

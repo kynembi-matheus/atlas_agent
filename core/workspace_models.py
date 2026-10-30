@@ -18,7 +18,7 @@ class ScheduleTask(BaseModel):
     source_run_id: UUID | None = None
     plan_steps: list[str] = Field(default_factory=list, max_length=8)
     dataset_ids: list[UUID] = Field(default_factory=list, max_length=10)
-    output_format: Literal['auto', 'dashboard'] = 'auto'
+    output_format: Literal['auto', 'dashboard', 'sites'] = 'auto'
     frequency: Literal['once', 'daily', 'weekly'] = 'once'
     weekdays: list[int] = Field(default_factory=list, max_length=7)
     timezone: str = 'America/Sao_Paulo'
@@ -63,13 +63,13 @@ class ContextualDelegateRequest(DelegateTask):
     web_search_enabled: bool | None = None
     dataset_ids: list[UUID] = Field(default_factory=list, max_length=10)
     query_ids: list[UUID] = Field(default_factory=list, max_length=10)
-    output_format: Literal['auto', 'dashboard'] = 'auto'
+    output_format: Literal['auto', 'dashboard', 'sites'] = 'auto'
 
 
 class ExecutionOptions(BaseModel):
     work_enabled: bool = False
     web_search_enabled: bool = False
-    output_format: Literal['auto', 'dashboard'] = 'auto'
+    output_format: Literal['auto', 'dashboard', 'sites'] = 'auto'
     dataset_ids: list[UUID] = Field(default_factory=list, max_length=10)
     query_ids: list[UUID] = Field(default_factory=list, max_length=10)
 

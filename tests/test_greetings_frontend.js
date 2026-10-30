@@ -18,18 +18,6 @@ test('welcome chooses a greeting safely across the random range', () => {
   assert.doesNotThrow(() => vm.runInNewContext(source, {document: {getElementById: () => null}, Math}));
 });
 
-test('welcome description varies independently', () => {
-  const source = fs.readFileSync(path.join(__dirname, '../frontend/greetings.js'), 'utf8');
-  const selected = new Set();
-  for (let i = 0; i < 8; i++) {
-    const node = {textContent: ''};
-    vm.runInNewContext(source, {document: {getElementById: id => id === 'welcome-description' ? node : null}, Math: {floor: Math.floor, random: () => (i + 0.5) / 8}});
-    assert.ok(node.textContent);
-    selected.add(node.textContent);
-  }
-  assert.equal(selected.size, 8);
-});
-
 test('suggestions have distinct labels and matching requests', () => {
   const source = fs.readFileSync(path.join(__dirname, '../frontend/greetings.js'), 'utf8');
   const buttons = Array.from({length: 3}, () => ({dataset: {}, lastChild: {}, querySelector: () => null}));

@@ -4,6 +4,32 @@ const appRoot = document.querySelector?.('meta[name="app-root-path"]')?.content 
 function appUrl(path) { return appRoot + path; }
 function appPath() { const path = window.location.pathname; return appRoot && (path === appRoot || path.startsWith(appRoot + '/')) ? path.slice(appRoot.length) || '/' : path; }
 const state = {runId: null, conversationId: null, files: [], timer: null, polling: false, run: null, uploading: false, sessionId: null, sessionPromise: null};
+const agentNames = ['Ana', 'Bruno', 'Clara', 'Daniel', 'Elisa', 'Felipe', 'Gabriela', 'Igor', 'Júlia', 'Lucas', 'Marina', 'Rafael', 'Sofia', 'Tiago'];
+function chooseAgentName() {
+  const value = new Uint32Array(1);
+  crypto.getRandomValues(value);
+  return agentNames[value[0] % agentNames.length];
+}
+let currentAgentName;
+try { currentAgentName = sessionStorage.getItem('atlas-agent-name'); } catch (_) {}
+if (!currentAgentName || !agentNames.includes(currentAgentName)) currentAgentName = chooseAgentName();
+function showAgentName(name) {
+  currentAgentName = name;
+  if ($('agent-name')) $('agent-name').textContent = name;
+  const introductions = [`Olá, sou ${name}, seu agente nesta sessão.`, `Prazer, eu sou ${name} e vou ajudar você nesta sessão.`, `Oi! Meu nome é ${name}. Estou aqui para ajudar.`, `Pode me chamar de ${name}. Vamos trabalhar juntos?`];
+  if ($('agent-introduction')) $('agent-introduction').textContent = introductions[Math.floor(Math.random() * introductions.length)];
+  try { sessionStorage.setItem('atlas-agent-name', name); } catch (_) {}
+}
+function restoreAgentName(conversationId) {
+  let name;
+  try { name = localStorage.getItem('atlas-agent-name:' + conversationId); } catch (_) {}
+  if (!agentNames.includes(name)) {
+    let hash = 0; for (const char of conversationId) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+    name = agentNames[hash % agentNames.length];
+  }
+  showAgentName(name);
+}
+showAgentName(currentAgentName);
 const statuses = {idle: 'Sem execução', queued: 'Na fila', running: 'Em andamento', completed: 'Concluída', failed: 'Com falha', cancelled: 'Cancelada'};
 
 function notice(message = '') { $('notice').textContent = message; $('notice').hidden = !message; }
@@ -75,6 +101,7 @@ async function refreshStatus() {
 async function refreshHistory(options = {}) {
   const request = state.historyRequest = (state.historyRequest || 0) + 1;
   const full = ['/sessoes', '/historico'].includes(appPath());
+  if ($('conversation-header')) $('conversation-header').hidden = appPath() !== '/';
   if (full && !options.silent) {
     $('history-feedback').textContent = 'Atualizando suas sessões…'; $('history-feedback').hidden = false;
     $('reload-history').disabled = true;
@@ -229,9 +256,12 @@ function renderHistoryPage() {
   const full = ['/sessoes', '/historico'].includes(appPath());
   $('history-page').hidden = !full;
   $('chat-page').hidden = full;
-  const dashboards = appPath() === '/dashboards';
-  const detail = /^\/dashboards\/[^/]+$/.test(appPath());
-  for (const [id, active] of [['more-history', full], ['open-dashboards', dashboards || detail], ['open-schedules', appPath() === '/agendamentos']]) {
+  const media = appPath() === '/midias';
+  if ($('media-page')) $('media-page').hidden = !media;
+  if (media) { $('chat-page').hidden = true; refreshMedia(); }
+  const dashboards = ['/sites', '/dashboards'].includes(appPath());
+  const detail = /^\/(?:sites|dashboards)\/[^/]+$/.test(appPath());
+  for (const [id, active] of [['more-history', full], ['open-media', media], ['open-dashboards', dashboards || detail], ['open-schedules', appPath() === '/agendamentos']]) {
     const link = $(id);
     if (active) link.setAttribute('aria-current', 'page');
     else link.removeAttribute?.('aria-current');
@@ -247,10 +277,44 @@ function renderHistoryPage() {
   if ($('dashboards-page')) $('dashboards-page').hidden = !dashboards;
   if ($('dashboard-detail-page')) $('dashboard-detail-page').hidden = !detail;
   if (dashboards || detail) $('chat-page').hidden = true;
-  document.title = full ? 'Sessões · Atlas Agent' : 'Atlas Agent · Seu espaço de análise';
-  if (dashboards || detail) document.title = 'Dashboards · Atlas Agent';
+  document.title = full ? 'Sessões · Assistente' : 'Assistente · Seu espaço de análise';
+  if (dashboards || detail) document.title = 'Sites · Assistente';
   if (typeof renderSchedulesPage === 'function') renderSchedulesPage();
   if (typeof renderDashboardPage === 'function') return renderDashboardPage();
+}
+async function refreshMedia() {
+  const list = $('media-list'); if (!list) return;
+  try {
+    const items = await (await api('/api/artifacts')).json();
+    if (appPath() !== '/midias') return;
+    let page = 0;
+    const renderPage = () => {
+    list.replaceChildren();
+    if (!items.length) { const empty = el('div', 'media-empty'); empty.append(historyIcon('attach'), el('strong', '', 'Nenhum arquivo disponível'), el('p', 'muted', 'Os arquivos gerados nas suas conversas aparecerão aqui.')); list.append(empty); }
+    for (const item of items.slice(page * 6, page * 6 + 6)) {
+      const button = el('button', 'media-file'); button.type = 'button';
+      const icon = el('span', 'media-file-icon'); icon.append(historyIcon('attach'));
+      const details = el('span', 'media-file-details'); details.append(el('strong', '', item.title), el('small', '', `Criado em ${new Date(item.created_at).toLocaleDateString('pt-BR')}`));
+      button.append(icon, details, el('span', 'media-download', 'Baixar'));
+      button.addEventListener('click', async () => {
+        try { const blob = await (await api(item.url)).blob(); const url = URL.createObjectURL(blob);
+          const a = el('a'); a.href = url; a.download = item.title; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000);
+        } catch (error) { notice(error.message); }
+      });
+      list.append(button);
+    }
+    if (items.length > 6) {
+      const nav = el('nav', 'media-pagination'); nav.setAttribute('aria-label', 'Paginação de arquivos');
+      const previous = el('button', 'secondary', 'Anterior'); previous.type = 'button'; previous.disabled = page === 0;
+      const next = el('button', 'secondary', 'Próxima'); next.type = 'button'; next.disabled = (page + 1) * 6 >= items.length;
+      const status = el('span', 'muted', `Página ${page + 1} de ${Math.ceil(items.length / 6)}`);
+      previous.addEventListener('click', () => { page--; renderPage(); });
+      next.addEventListener('click', () => { page++; renderPage(); });
+      nav.append(previous, status, next); list.append(nav);
+    }
+    };
+    renderPage();
+  } catch (error) { notice(error.message); }
 }
 function navigatePage(path) {
   if (appPath() !== path) window.history.pushState({}, '', appUrl(path));
@@ -326,7 +390,7 @@ function render(run) {
     if (artifact.format === 'dashboard') {
       const link = el('a', 'artifact'); link.append(historyIcon('dashboard'), el('span', '', `${artifact.title} · Abrir dashboard`));
       link.href = appUrl(artifact.url);
-      link.addEventListener('click', event => { event.preventDefault(); navigatePage(artifact.url); });
+      link.target = '_blank'; link.rel = 'noopener noreferrer';
       $('artifacts').append(link); continue;
     }
     const button = el('button', 'artifact'); button.type = 'button';
@@ -374,7 +438,7 @@ async function loadConversation(run) {
       assistant.append(el('span', 'message-label', 'ATLAS'));
       const answer = el('div', 'answer'); renderMarkdown(answer, previous.answer || previous.error || ''); assistant.append(answer);
       for (const artifact of previous.artifacts || []) {
-        if (artifact.format === 'dashboard') { const link = el('a', 'artifact', artifact.title); link.href = appUrl(artifact.url); assistant.append(link); continue; }
+        if (artifact.format === 'dashboard') { const link = el('a', 'artifact', artifact.title); link.href = appUrl(artifact.url); link.target = '_blank'; link.rel = 'noopener noreferrer'; assistant.append(link); continue; }
         const link = el('button', 'artifact', artifact.title); link.type = 'button';
         link.addEventListener('click', async () => {
           try {
@@ -395,6 +459,7 @@ function selectRun(run) {
   stopPolling();
   if (state.conversationId !== run.conversation_id) $('previous-messages').replaceChildren();
   state.runId = run.id; state.conversationId = run.conversation_id;
+  restoreAgentName(run.conversation_id);
   render(run); loadConversation(run); refreshHistory();
   try { sessionStorage.setItem('atlas-active-run', run.id); } catch (_) {}
   if (['queued', 'running'].includes(run.status)) state.timer = setInterval(poll, 1500);
@@ -407,6 +472,10 @@ $('new-run').addEventListener('click', async () => {
   catch (error) { notice(error.message); return; }
   finally { $('new-run').disabled = false; }
   stopPolling(); state.runId = null; state.conversationId = null; state.run = null;
+  let nextName = chooseAgentName();
+  while (nextName === currentAgentName) nextName = chooseAgentName();
+  showAgentName(nextName);
+  if (typeof refreshWelcomeGreeting === 'function') refreshWelcomeGreeting();
   $('previous-messages').replaceChildren();
   try { sessionStorage.removeItem('atlas-active-run'); } catch (_) {}
   $('conversation-title').textContent = 'Nova Conversa';
@@ -475,7 +544,8 @@ $('prompt-form').addEventListener('submit', async event => {
   if (requestPrompt.length > $('prompt').maxLength) { notice('O pedido excede o limite de caracteres. Reduza o texto ou as seleções.'); return; }
   $('send').disabled = true; notice();
   try {
-    const run = await (await api('/api/runs', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({work_enabled: $('work-enabled')?.getAttribute?.('aria-pressed') === 'true', web_search_enabled: $('web-search-enabled')?.getAttribute('aria-pressed') === 'true' && !$('web-search-enabled')?.disabled, output_format: $('output-dashboard')?.checked ? 'dashboard' : 'auto', prompt: requestPrompt, conversation_id: state.conversationId, dataset_ids: state.files.map(file => file.id), query_ids: typeof selectedQueryIds === 'function' ? selectedQueryIds() : []})})).json();
+    const run = await (await api('/api/runs', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({work_enabled: $('work-enabled')?.getAttribute?.('aria-pressed') === 'true', web_search_enabled: $('web-search-enabled')?.getAttribute('aria-pressed') === 'true' && !$('web-search-enabled')?.disabled, output_format: $('output-dashboard')?.checked ? 'sites' : 'auto', prompt: requestPrompt, conversation_id: state.conversationId, dataset_ids: state.files.map(file => file.id), query_ids: typeof selectedQueryIds === 'function' ? selectedQueryIds() : []})})).json();
+    if (!state.conversationId) { try { localStorage.setItem('atlas-agent-name:' + run.conversation_id, currentAgentName); } catch (_) {} }
     selectRun(run); $('prompt').value = ''; state.files = []; renderAttachments();
     if (typeof clearQueryAttachments === 'function') clearQueryAttachments();
   } catch (error) { notice(error.message); $('send').disabled = false; }
@@ -514,3 +584,5 @@ renderHistoryPage(); refreshStatus(); refreshHistory();
   try { const run = await (await api(`/api/runs/${id}`)).json(); if (!state.runId) selectRun(run); }
   catch (_) { /* A conversa pode ter expirado. */ }
 })();
+
+$('open-media')?.addEventListener('click', event => { event.preventDefault(); navigatePage('/midias'); });

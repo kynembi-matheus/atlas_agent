@@ -1,0 +1,20 @@
+﻿'use strict';
+const {test} = require('node:test');
+const assert = require('node:assert/strict');
+const vm = require('node:vm');
+const fs = require('node:fs');
+test('agent name is presented and restored for a conversation', () => {
+  const src = fs.readFileSync('frontend/app.js', 'utf8');
+  const fragment = src.slice(src.indexOf('const agentNames ='), src.indexOf('const statuses ='));
+  const nodes = {'agent-name': {}, 'agent-introduction': {}};
+  const values = new Map();
+  const storage = {getItem: key => values.get(key), setItem: (key, value) => values.set(key, value)};
+  const context = vm.createContext({$: id => nodes[id], crypto: {getRandomValues: a => {a[0] = 2; return a;}}, sessionStorage: storage, localStorage: storage, Uint32Array});
+  vm.runInContext(fragment, context);
+  assert.equal(nodes['agent-name'].textContent, 'Clara');
+  assert.match(nodes['agent-introduction'].textContent, /Clara/);
+  values.set('atlas-agent-name:conversation', 'Sofia');
+  context.restoreAgentName('conversation');
+  assert.equal(nodes['agent-name'].textContent, 'Sofia');
+  assert.match(nodes['agent-introduction'].textContent, /Sofia/);
+});

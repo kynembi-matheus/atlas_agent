@@ -9,8 +9,8 @@
     const label = collapsed ? 'Expandir sidebar' : 'Minimizar sidebar';
     button.setAttribute('aria-label', label); button.title = label;
   }
-  let initial = false;
-  try { initial = localStorage.getItem(key) === 'true'; } catch (_) { /* Preferência vale nesta página. */ }
+  let initial = true;
+  try { initial = localStorage.getItem(key) !== 'false'; } catch (_) { /* Preferência vale nesta página. */ }
   apply(initial);
   button.addEventListener('click', () => {
     const collapsed = root.getAttribute('data-sidebar-collapsed') !== 'true';

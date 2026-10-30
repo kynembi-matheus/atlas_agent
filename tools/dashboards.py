@@ -61,7 +61,7 @@ class Dashboard(BaseModel):
     Priorize cards metric e gráficos bar, line (evolução temporal), donut (composição).
     Use pouco texto: títulos curtos, description opcional curta e tabelas complementares.
     Em tabelas, informe numeric_columns para valores e quantidades; preserve identificadores e anos.
-    Leia dashboard/SKILL.md para filtros dinâmicos. filters permite select ou text por dataset.
+    Leia sites/SKILL.md para filtros dinâmicos. filters permite select ou text por dataset.
     Use aggregation nos widgets para recalcular indicadores após filtrar, antes de max_rows.
     """
     model_config = ConfigDict(extra='forbid')
@@ -126,7 +126,7 @@ async def create_dashboard(toolbox, args):
     library = Dashboards(toolbox.query_store)
     item = library.create(dashboard_owner.get(), {**args.model_dump(), 'sources': sources})
     result = {'id': item['id'], 'title': item['title'], 'format': 'dashboard',
-              'url': f"/dashboards/{item['id']}", 'refresh_seconds': 60}
+              'url': f"/sites/{item['id']}", 'refresh_seconds': 60}
     if toolbox.run:
         toolbox.run.artifacts.append(result)
     return result

@@ -72,7 +72,7 @@ test('selecting a skill does not exceed the prompt length limit', () => {
   assert.match(notices[0], /limite/);
 });
 
-test('chat tool controls are inside the composer next to web search', () => {
+test('chat tool controls are next to attachment control', () => {
   const html = fs.readFileSync(path.join(__dirname, '../frontend/index.html'), 'utf8');
   const sidebar = html.slice(html.indexOf('<aside id="app-sidebar"'), html.indexOf('</aside>'));
   const workspace = html.slice(html.indexOf('<form id="prompt-form"'), html.indexOf('</form>', html.indexOf('<form id="prompt-form"')));
@@ -81,7 +81,8 @@ test('chat tool controls are inside the composer next to web search', () => {
   assert.match(workspace, /id="toggle-skills"/);
   assert.match(workspace, /id="toggle-imports"/);
   assert.match(workspace, /id="toggle-queries"/);
-  assert.ok(workspace.indexOf('id="toggle-preview"') > workspace.indexOf('id="web-search-enabled"'));
+  assert.ok(workspace.indexOf('id="toggle-preview"') > workspace.indexOf('id="data-files"'));
+  assert.ok(workspace.indexOf('id="toggle-queries"') < workspace.indexOf('class="composer-actions"'));
   const header = html.slice(html.indexOf('<section class="workspace-head"'), html.indexOf('<section id="welcome"'));
   assert.doesNotMatch(header, /id="toggle-preview"|id="toggle-imports"|id="toggle-skills"|id="toggle-queries"/);
   assert.equal((html.match(/id="toggle-preview"/g) || []).length, 1);

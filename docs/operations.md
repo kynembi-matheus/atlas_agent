@@ -356,7 +356,7 @@ Instale as dependências com `uv sync --locked`: `pyarrow` grava/lê Parquet e `
 
 Se houver HTTP 422 ou 413 na importação, confira a mensagem exibida no painel. Recusas de leitura, inferência, validação ou gravação em Parquet também incluem o header `X-Import-Stage`; o log registra apenas etapa e status, sem nomes de arquivos, células ou respostas de IA. Mensagens de limites informam se o bloqueio ocorreu por tamanho descompactado, linhas, colunas ou caracteres. Alterações de configuração/código exigem recarregar ou reiniciar a aplicação pela raiz com `uv run app.py`.
 
-Em **Skills**, estão disponíveis: **Relatórios em PDF**, **Relatórios em Excel**, **Gráficos para apresentação**, **Projeções autorregressivas**, **Encontrar padrões ocultos**, **Qualidade e consistência dos dados**, **Análise comparativa**, **Síntese executiva e plano de ação** e **Consultar dados internos**. As novas skills são descobertas automaticamente ao abrir o painel.
+Em **Skills**, estão disponíveis: **Relatórios em PDF**, **Relatórios em Excel**, **Gráficos para apresentação**, **Projeções autorregressivas**, **Encontrar padrões ocultos**, **Qualidade e consistência dos dados**, **Análise comparativa**, **Síntese executiva e plano de ação**, **Consultar dados internos** e **Sites**. As novas skills são descobertas automaticamente ao abrir o painel.
 
 Relatórios gerenciais Excel usam `create_excel_report`: resumo, até seis abas com colunas de negócio, filtros, cabeçalhos fixos e gráficos editáveis. Os gráficos mostram até vinte registros; o relatório aceita até 30000 linhas distribuídas nas abas. Para simples extração completa use `export_dataset`. Gráficos para apresentações são entregues em PDF/HTML ou Excel editável; não há geração de PPTX ou imagens isoladas nesta ferramenta.
 
@@ -523,3 +523,14 @@ usam esse caminho; deixe a opção vazia para publicar na raiz. O proxy deve enc
 ## Work (Python em WASI)
 
 O Work usa `wasi-python` e Wasmtime sem acesso à rede, ao ambiente ou aos diretórios do servidor. O código recebe somente os dados enviados na chamada. A pasta virtual `/output` aceita até 10 arquivos, com 200 MB no total, e são publicados apenas quando a execução termina com sucesso. Formatos: CSV, XLSX, PDF, JSON, TXT, PNG, JPG, ZIP, DOCX, PPTX e Markdown. Cada chamada tem limite de 60 segundos, 1024 MiB de memória e 16 KB por fluxo de saída. O agente pode usar o Work automaticamente; o botão pede que ele avalie seu uso.
+
+
+## Mídias e Arquivos
+
+A aba Mídias e Arquivos lista os arquivos gerados acessíveis ao usuário, com seis itens por página e controles de navegação quando houver mais arquivos. Selecione um item para baixá-lo. Arquivos persistentes ficam disponíveis por 15 dias e são removidos com seus registros na inicialização e em verificações horárias. Arquivos de sessão temporária continuam sujeitos à expiração dessa sessão, que pode ocorrer antes dos 15 dias. A conversa permanece, mas downloads vencidos deixam de funcionar.
+
+## Sites públicos
+
+A biblioteca Sites reúne dashboards do perfil e páginas estáticas. Peça ao agente para criar um site; a ferramenta `create_site` publica título, descrição e seções textuais. O link é público: qualquer pessoa que o possua pode abrir a página. Não publique informações privadas. A biblioteca e a exclusão permanecem restritas ao perfil local. Excluir o site invalida seu link. Esta versão gera páginas textuais; HTML arbitrário, scripts e arquivos externos não são suportados. Dashboards mantêm seu funcionamento e acesso anteriores.
+
+A biblioteca usa o endereço `/sites`; dashboards abrem em `/sites/{id}`. Endereços antigos em `/dashboards` continuam funcionando.

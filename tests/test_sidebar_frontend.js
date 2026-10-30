@@ -29,8 +29,16 @@ test('sidebar restores collapsed preference and toggles accessibly in both direc
 });
 test('sidebar works with blocked storage and follows changes from another tab', () => {
   const h = harness(null, true);
-  h.button.click();
   assert.equal(h.attributes.get('aria-expanded'), 'false');
+  h.button.click();
+  assert.equal(h.attributes.get('aria-expanded'), 'true');
   h.window.storage({key: 'scd-sidebar-collapsed', newValue: 'false'});
   assert.equal(h.attributes.get('aria-expanded'), 'true');
+});
+
+test('sidebar starts collapsed when no preference exists', () => {
+  const h = harness();
+  assert.equal(h.rootAttributes.get('data-sidebar-collapsed'), 'true');
+  assert.equal(h.attributes.get('aria-expanded'), 'false');
+  assert.equal(harness('false').attributes.get('aria-expanded'), 'true');
 });

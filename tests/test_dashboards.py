@@ -51,13 +51,16 @@ def test_library_refresh_ownership_and_delete(settings, store, client_owner_scop
     with TestClient(app) as client:
         with client_owner_scope(client):
             key = postgres_dataset(store)['id']
+        assert client.get('/sites').status_code == 200
         assert client.get('/dashboards').status_code == 200
         profile = client.cookies.get('scd-dashboard-profile')
         response = client.post('/api/dashboards', json=specification(key))
         assert response.status_code == 201
         item = response.json()
         assert item['format'] == 'dashboard'
-        assert item['url'] == f"/dashboards/{item['id']}"
+        assert item['url'] == f"/sites/{item['id']}"
+        assert client.get(item['url']).status_code == 200
+        assert client.get('/dashboards/' + item['id']).status_code == 200
         assert client.get(item['url']).status_code == 200
         assert client.get('/api/dashboards/' + item['id']).json()['title'] == specification(key)['title']
         for _ in range(3):
@@ -248,7 +251,7 @@ def test_agent_task_inherits_browser_profile(settings, store, client_owner_scope
             time.sleep(.005)
         assert run['status'] == 'completed'
         item = client.get('/api/dashboards').json()['dashboards'][0]
-        assert run['artifacts'][0]['url'] == '/dashboards/' + item['id']
+        assert run['artifacts'][0]['url'] == '/sites/' + item['id']
 
 
 def test_dynamic_filters_apply_before_aggregation_and_display_limit(settings, store, client_owner_scope):

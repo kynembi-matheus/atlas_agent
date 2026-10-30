@@ -69,6 +69,7 @@ mesmo sem chave pública/target. Nesse modo, páginas e API exigem sessão local
 | POST | `/api/runs/{id}/cancel` | Solicita cancelamento; preserva arquivos concluídos |
 | POST | `/api/datasets/upload` | Recebe `file` multipart CSV UTF-8 e retorna dataset/prévia |
 | GET | `/api/datasets/{id}` | Metadados e prévia das primeiras linhas |
+| GET | `/api/artifacts` | Lista os arquivos persistentes e os arquivos da sessão temporária, quando disponível |
 | GET | `/api/artifacts/{id}` | Download autenticado de arquivo gerado |
 
 ## Pedido e conversa
@@ -231,7 +232,7 @@ IDs de outro perfil retornam 404. Não existe identidade individual autenticada 
   504 ao exceder 35 segundos. A busca das tabelas opera nas linhas retornadas do widget.
 - `DELETE /api/dashboards/{uuid}`: exclui do perfil atual (204), liberando uma vaga.
 
-`POST /api/runs` aceita `output_format: "auto" | "dashboard"` (padrão `auto`).
+`POST /api/runs` aceita `output_format: "auto" | "sites" | "dashboard"` (padrão `auto`).
 A ferramenta `create_dashboard` usa o mesmo schema de criação e retorna
 `{id, title, format: "dashboard", url: "/dashboards/uuid", refresh_seconds: 60}`.
 
@@ -249,3 +250,11 @@ sessão começou por delegação, `id` é nulo até existir uma execução princ
 subagentes continuam acessíveis por `GET /api/runs/{run_id}`. `color` usa `teal` e
 `violet` conforme a posição do perfil na sessão. Aplica o mesmo proprietário e
 `X-Data-Session` das demais rotas. `/api/conversations` mantém seu contrato anterior.
+
+## Sites estáticos
+
+`GET /api/sites` lista os sites do perfil local e `DELETE /api/sites/{id}` exclui um site desse perfil. `GET /public/sites/{id}` disponibiliza a página sem autenticação para quem tiver o link. Os identificadores são aleatórios e a resposta é isolada por CSP sandbox. A criação é feita pela ferramenta declarativa `create_site`.
+
+O formato `sites` permite páginas estáticas sem dataset ou dashboards com dados reais, conforme o pedido. `dashboard` permanece disponível para clientes existentes.
+
+A interface usa `/sites` para a biblioteca e `/sites/{id}` para dashboards; os caminhos anteriores `/dashboards` permanecem disponíveis. Os endpoints de dados `/api/dashboards` permanecem inalterados.

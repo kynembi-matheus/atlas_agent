@@ -2,7 +2,7 @@
 import json
 import sqlite3
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -187,8 +187,33 @@ class Store:
                        (artifact_id, run_id, encode(artifact), history_owner.get()))
         return artifact
 
+    def list_artifacts(self):
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=15)).isoformat()
+        with self.connect() as db:
+            rows = db.execute("SELECT payload FROM artifacts WHERE (? IS NULL OR owner_id = ?) AND json_extract(payload, '$.created_at') > ? ORDER BY json_extract(payload, '$.created_at') DESC", (history_owner.get(), history_owner.get(), cutoff)).fetchall()
+        return [json.loads(row[0]) for row in rows]
+
+    def purge_expired_artifacts(self):
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=15)).isoformat()
+        with self.connect() as db:
+            rows = db.execute("SELECT id, payload FROM artifacts WHERE json_extract(payload, '$.created_at') <= ?", (cutoff,)).fetchall()
+            for artifact_id, payload in rows:
+                item = json.loads(payload)
+                filename = item.get('filename', '')
+                if not filename.startswith(artifact_id + '.') or Path(filename).name != filename:
+                    continue
+                try:
+                    (self.artifacts_dir / filename).unlink(missing_ok=True)
+                except OSError:
+                    continue
+                db.execute("DELETE FROM artifacts WHERE id = ?", (artifact_id,))
+
     def get_artifact(self, artifact_id: str) -> dict | None:
         with self.connect() as db:
             row = db.execute("SELECT payload FROM artifacts WHERE id = ? AND (? IS NULL OR owner_id = ?)",
                              (artifact_id, history_owner.get(), history_owner.get())).fetchone()
-        return json.loads(row[0]) if row else None
+        if not row:
+            return None
+        item = json.loads(row[0])
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=15)).isoformat()
+        return item if item.get('created_at', '') > cutoff else None

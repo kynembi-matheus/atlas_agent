@@ -25,7 +25,7 @@ for (const [checked, disabled, expected, dashboard] of [[false, false, false, fa
     await $('prompt-form').handlers.submit({preventDefault() {}});
     assert.equal(requests.length, 1);
     assert.equal(requests[0].web_search_enabled, expected);
-    assert.equal(requests[0].output_format, dashboard ? 'dashboard' : 'auto');
+    assert.equal(requests[0].output_format, dashboard ? 'sites' : 'auto');
   });
 }
 

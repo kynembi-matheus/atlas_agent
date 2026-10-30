@@ -1,9 +1,9 @@
 ---
-name: dashboard
-description: Crie dashboards HTML com indicadores, gráficos, tabelas e filtros dinâmicos sobre datasets reais usando create_dashboard.
+name: sites
+description: Crie sites estáticos públicos e dashboards com indicadores, gráficos, tabelas e filtros sobre datasets reais.
 ---
 
-# Criação de dashboard
+# Sites e dashboards
 
 Use `create_dashboard` para salvar na biblioteca do usuário. Forneça apenas a especificação declarativa, sem HTML ou JavaScript. Priorize indicadores e gráficos com títulos curtos e unidades explícitas.
 
@@ -31,3 +31,7 @@ Exemplo de especificação (substitua `dataset-real` pelo ID retornado pela cons
 ```
 
 A biblioteca aceita até quatro dashboards por perfil. Fontes importadas dependem da sessão ativa; fontes do banco repetem a consulta e transformações a cada atualização. Nunca afirme que verificou dados ou interações que não executou.
+
+## Páginas estáticas públicas
+
+Use `create_site` para publicar uma página com título, descrição e seções textuais. O link permite acesso público: nunca inclua dados privados sem autorização. Informe o link ao usuário. A página não executa scripts nem aceita HTML arbitrário. Para indicadores atualizados, use `create_dashboard`.

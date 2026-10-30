@@ -52,7 +52,7 @@ def test_skills_api_lists_application_skills_without_ai_or_mcp(settings):
         assert response.headers['Cache-Control'] == 'no-store'
         assert {skill['id'] for skill in response.json()['skills']} == {
             'pdf-report', 'pg_mcp', 'excel-report', 'presentation-charts', 'autoregressive-forecasts',
-            'hidden-patterns', 'data-quality', 'comparative-analysis', 'executive-briefing', 'dashboard',
+            'hidden-patterns', 'data-quality', 'comparative-analysis', 'executive-briefing', 'sites',
         }
         assert all(set(skill) == {'id', 'name', 'description', 'document_path'}
                    for skill in response.json()['skills'])

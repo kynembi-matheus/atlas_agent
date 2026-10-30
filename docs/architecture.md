@@ -435,7 +435,7 @@ variáveis de superfícies, texto e estados entre chat, histórico, painéis e d
 
 ## Dashboards HTML
 
-A skill `skills/dashboard/SKILL.md` orienta a ferramenta de criação. `DashboardFilter`
+A skill `skills/sites/SKILL.md` orienta a ferramenta de criação. `DashboardFilter`
 define filtros declarativos `select` e `text`. O renderizador filtra as linhas retornadas
 antes de agregar widgets (`sum`, `mean`, `count`, `min`, `max`) e aplicar `max_rows`.
 Opções vêm do dataset completo retornado, preservando avisos de amostra e origem.
@@ -446,7 +446,7 @@ no refresh; uma revisão descarta respostas anteriores e agenda a seleção mais
 Dashboards antigos sem `filters` e sem `aggregation` preservam seu comportamento.
 
 `tools/dashboards.py` define os schemas Pydantic `Dashboard` e `Widget`, registrados em
-`SCHEMAS` como `create_dashboard`. `RunRequest.output_format` aceita `auto` e `dashboard`.
+`SCHEMAS` como `create_dashboard`. `RunRequest.output_format` aceita `auto`, `sites` e `dashboard` (compatibilidade). `sites` orienta o agente a escolher página estática sem dataset ou dashboard com dados reais conforme o pedido.
 A ferramenta retorna um artefato de navegação para `/dashboards/uuid`, sem download estático.
 A biblioteca fica em `/dashboards`; cada dashboard abre em página própria, com retorno à
 biblioteca, URL direta e suporte ao histórico do navegador.
@@ -477,3 +477,7 @@ O planejamento e sua confirmacao ficam no chat; o dialogo configura somente a re
 Quando `APP_ROOT_PATH` está configurado, o proxy remove esse prefixo antes de encaminhar
 as requisições. O Atlas o aplica aos redirecionamentos de login, recursos da interface,
 URLs de API e navegação do navegador; as rotas internas continuam na raiz da aplicação.
+
+## Sites estáticos
+
+`tools/sites.py` valida o conteúdo declarativo e armazena páginas na tabela `sites`, por perfil. Um identificador aleatório serve como link público; o HTML escapa os textos e é servido com CSP sandbox, sem scripts, formulários ou recursos externos. A biblioteca consulta sites e dashboards separadamente; os dashboards existentes não são migrados. A skill `sites/SKILL.md` orienta ambas as ferramentas.
